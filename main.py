@@ -6,12 +6,9 @@ from main_window import MainWindow
 
 
 def main():
-    net_manager = QtNetwork.QNetworkAccessManager()
     app = QApplication(sys.argv)
-    login = LoginDialog(net_manager)
-    login.show()
-    mainWindow = MainWindow(net_manager)
-    login.loggedSignal.connect(mainWindow.showMaximized)
+    mainWindow = MainWindow()
+    mainWindow.show()
     sys.exit(app.exec_())
 
 
