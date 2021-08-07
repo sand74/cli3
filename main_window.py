@@ -7,6 +7,7 @@ from PyQt5 import QtWidgets, QtNetwork
 from PyQt5.QtWidgets import QApplication, QToolButton
 
 from globals import Globals
+from input_dialog import InputDialog
 from login import LoginDialog
 from models import Query, Folder, QueryTreeItem, FolderTreeItem, QueryListItem
 from table import TableWindow
@@ -25,17 +26,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setupUi(self, MainWindow):
         super().setupUi(self)
         # init widgets
-        self._fill_tree()
+        self.setupNav()
         # init actions
         # init menu actions
         self.actionExit.triggered.connect(lambda: QApplication.exit())
-        # init folders tree actions
-        self.foldersTreeWidget.customContextMenuRequested.connect(self._folders_tree_context_menu)
-        self.foldersTreeWidget.itemDoubleClicked.connect(self._folders_tree_dbl_click)
         # init query actions
         Globals.session.querySentSignal.connect(self.query_sent_handler)
         Globals.session.queryDoneSignal.connect(self.query_done_handler)
         Globals.session.queryDoneSignal.connect(self.answer_received)
+
+    def setupNav(self):
+        self.refreshFoldersButton.setIcon(qta.icon('fa5s.sync', color='green'))
+        self.refreshFoldersButton.clicked.connect(self._fill_tree)
+        self._fill_tree()
+        # init folders tree actions
+        self.foldersTreeWidget.customContextMenuRequested.connect(self._folders_tree_context_menu)
+        self.foldersTreeWidget.itemDoubleClicked.connect(self._folders_tree_dbl_click)
 
     def query_sent_handler(self, err, uuid, query) -> None:
         print(uuid, '- Query sent', query, 'with error code', err)
@@ -89,9 +95,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self._send_query(item.query)
 
     def _send_query(self, query: Query):
-        Globals.session.send_query(query)
+        print('Query', query)
+        if query.has_in_params():
+            input_dialog = InputDialog(query, self)
+            input_dialog.setModal(True)
+            input_dialog.show()
+        else:
+            Globals.session.send_query(query)
 
     def _fill_tree(self):
+        self.foldersTreeWidget.clear()
         Globals.session.getDoneSignal.connect(self._handle_fill)
         Globals.session.get('/api/docs/tree')
 

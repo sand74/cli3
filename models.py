@@ -31,16 +31,29 @@ class FolderTreeItem(QTreeWidgetItem):
         return self._folder
 
 
+class InputField(object):
+    def __init__(self, field):
+        super().__init__()
+        self._type = field['type']
+        self._desc = field['desc']
+
+
 class Param(object):
     def __init__(self, param):
         super().__init__()
         self._name = param['name']
+        self._title = param['title']
         self._type = param['type']
         self._value = param['value']
+        self._field = InputField(param['input']) if param['input'] is not None else None
 
     @property
     def name(self):
         return self._name
+
+    @property
+    def title(self):
+        return self._title
 
     @property
     def type(self):
@@ -49,6 +62,10 @@ class Param(object):
     @property
     def value(self):
         return self._value
+
+    @property
+    def field(self):
+        return self._field
 
     def __str__(self):
         return f'Parameter {self._name} of type {self.type} = {self._value}'
@@ -83,6 +100,9 @@ class Query(object):
     @property
     def params(self):
         return self._params
+
+    def has_in_params(self):
+        return len([param for param in self._params if param.type not in ['CURSOR', 'TEXT']]) > 0
 
 
 class QueryTreeItem(QTreeWidgetItem):
