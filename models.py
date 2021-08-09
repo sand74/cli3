@@ -1,12 +1,23 @@
 # from PyQt5 import Qt
+import datetime
+import uuid
 
+import numpy as np
+import pandas as pd
 import qtawesome as qta
 from PyQt5 import QtCore
-from PyQt5.QtCore import QAbstractTableModel, Qt
-from PyQt5.QtWidgets import QTreeWidgetItem, QListWidgetItem
+from PyQt5.QtCore import QAbstractTableModel, Qt, QObject
+from PyQt5.QtWidgets import QTreeWidgetItem, QListWidgetItem, QTableWidgetItem
+from typing import List
 
+'''
+Модели объектов приложения
+'''
 
 class Folder(object):
+    """
+    Модель папки
+    """
     def __init__(self, folder):
         super().__init__()
         self._name = folder['name']
@@ -20,6 +31,9 @@ class Folder(object):
 
 
 class FolderTreeItem(QTreeWidgetItem):
+    """
+    модель папки для отображения в дереве
+    """
     def __init__(self, folder: Folder, widget: QTreeWidgetItem = None):
         super(FolderTreeItem, self).__init__(widget)
         self._folder = folder
@@ -32,6 +46,9 @@ class FolderTreeItem(QTreeWidgetItem):
 
 
 class InputField(object):
+    """
+    Модель поля ввода
+    """
     def __init__(self, field):
         super().__init__()
         self._type = field['type']
@@ -39,6 +56,9 @@ class InputField(object):
 
 
 class Param(object):
+    """
+    Модель параметра запрося
+    """
     def __init__(self, param):
         super().__init__()
         self._name = param['name']
@@ -73,6 +93,9 @@ class Param(object):
 
 
 class Query(object):
+    """
+    модель запрося
+    """
     def __init__(self, query):
         super().__init__()
         self._id = query['id']
@@ -104,8 +127,24 @@ class Query(object):
     def has_in_params(self):
         return len([param for param in self._params if param.type not in ['CURSOR', 'TEXT']]) > 0
 
+    def make_request(self, params=None):
+        if params is None:
+            params = {}
+        request = f'id={self._id}'
+        for param in self._params:
+            if param.name in params:
+                request += f'&{param.name}={params[param.name]}'
+            else:
+                request += f'&{param.name}={param.value}'
+        return request
+
+
+
 
 class QueryTreeItem(QTreeWidgetItem):
+    """
+    модель запрося для отображения в дереве
+    """
     def __init__(self, query):
         super().__init__()
         self._query = query
@@ -118,6 +157,9 @@ class QueryTreeItem(QTreeWidgetItem):
 
 
 class QueryListItem(QListWidgetItem):
+    """
+    модель запрося для отображения в списке
+    """
     def __init__(self, query, uuid):
         super().__init__()
         self._uuid = uuid
@@ -134,6 +176,9 @@ class QueryListItem(QListWidgetItem):
 
 
 class PandasTableModel(QAbstractTableModel):
+    """
+    Модель таблицы для представления датафрейма pandas
+    """
     def __init__(self, dataframe):
         super().__init__()
         self._dataframe = dataframe
@@ -156,3 +201,69 @@ class PandasTableModel(QAbstractTableModel):
             return QtCore.QVariant()
         if orientation == QtCore.Qt.Horizontal:
             return QtCore.QVariant(self._dataframe.columns[column])
+
+
+class RequestInfo(QObject):
+    """
+    Класс для сохранения параметров запроса до получения ответа
+    """
+    def __init__(self, query, request):
+        super().__init__()
+        self.uuid = uuid.uuid4()
+        self.request = request
+        self.query = query
+        self.error = 0
+        self.answer = None
+
+    def __str__(self):
+        return self.query
+
+
+class RequestTableModel(QAbstractTableModel):
+    _columns = ['uuid', 'query', 'sent', 'done', 'error', 'text']
+    _data = pd.DataFrame(data=[], columns=_columns)
+
+    def __init__(self):
+        super().__init__()
+
+    def rowCount(self, parent=None):
+        return len(self._data.values)
+
+    def columnCount(self, parent=None):
+        return self._data.columns.size
+
+    def data(self, index, role=Qt.DisplayRole):
+        if index.isValid():
+            if role == Qt.DisplayRole:
+                return QtCore.QVariant(str(
+                    self._data.iloc[index.row()][index.column()]))
+        return QtCore.QVariant()
+
+    def headerData(self, column, orientation, role=QtCore.Qt.DisplayRole):
+        if role != QtCore.Qt.DisplayRole:
+            return QtCore.QVariant()
+        if orientation == QtCore.Qt.Horizontal:
+            return QtCore.QVariant(self._data.columns[column])
+
+    def insert(self, req: RequestInfo):
+        serie = pd.Series(data=[req.uuid, req.query.name, datetime.datetime.now(), None, None, None],
+                          index=self._columns)
+        self.beginResetModel()
+        self._data = self._data.append(serie, ignore_index=True)
+        self.endResetModel()
+        print(self._data.tail())
+
+    def update(self, req: RequestInfo):
+        self.beginResetModel()
+        self._data.loc[self._data.uuid == req.uuid, 'done'] = datetime.datetime.now()
+        self._data.loc[self._data.uuid == req.uuid, 'error'] = req.error
+        self._data.loc[self._data.uuid == req.uuid, 'text'] = req.answer[:20]
+        self.endResetModel()
+        print(self._data.tail())
+
+    def remove(self, req: RequestInfo):
+        self.beginResetModel()
+        indices = self._data[self._data.uuid == req.uuid]
+        self._data.drop(indices, inplace=True)
+        self.endResetModel()
+        print(self._data.tail())

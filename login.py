@@ -7,6 +7,9 @@ from ui.login import Ui_dlgLogin
 from globals import Globals
 
 class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
+    """
+    Форма входа в приложение
+    """
     loggedSignal = pyqtSignal(int)
 
     def __init__(self):

@@ -9,13 +9,16 @@ from PyQt5.QtWidgets import QApplication, QToolButton
 from globals import Globals
 from input_dialog import InputDialog
 from login import LoginDialog
-from models import Query, Folder, QueryTreeItem, FolderTreeItem, QueryListItem
+from models import Query, Folder, QueryTreeItem, FolderTreeItem, QueryListItem, RequestTableModel
+from network import RequestInfo
 from table import TableWindow
 from ui.main_window import Ui_MainWindow
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-
+    """
+    Главное окно приложения
+    """
     def __init__(self):
         super().__init__()
         self.login_dialog = LoginDialog()
@@ -27,6 +30,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         super().setupUi(self)
         # init widgets
         self.setupNav()
+        self.setupLog()
         # init actions
         # init menu actions
         self.actionExit.triggered.connect(lambda: QApplication.exit())
@@ -43,36 +47,43 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.foldersTreeWidget.customContextMenuRequested.connect(self._folders_tree_context_menu)
         self.foldersTreeWidget.itemDoubleClicked.connect(self._folders_tree_dbl_click)
 
-    def query_sent_handler(self, err, uuid, query) -> None:
-        print(uuid, '- Query sent', query, 'with error code', err)
-        item = QueryListItem(query=query, uuid=uuid)
-        item.setText(query.name)
-        item.setIcon(qta.icon('fa5s.spinner', color='green'))
-        self.queriesListWidget.insertItem(0, item)
+    def setupLog(self):
+        self.requestTableModel = RequestTableModel()
+        self.requestTableView.setModel(self.requestTableModel)
 
-    def query_done_handler(self, err, uuid, query) -> None:
-        print(uuid, '- Query done', query, 'with error code', err)
-        for i in range(self.queriesListWidget.count()):
-            item = self.queriesListWidget.item(i)
-            if item.uuid == uuid:
-                if err == 0:
-                    item.setIcon(qta.icon('fa5s.check-double', color='blue'))
-                else:
-                    item.setIcon(qta.icon('fa5s.skull-crossbones', color='red'))
-                #                self.queriesListWidget.takeItem(i)
-                break
+    def query_sent_handler(self, request: RequestInfo) -> None:
+        print(request.uuid, '- Query sent', request.query, 'with error code', request.error)
+#        item = QueryListItem(query=request.query, uuid=request.uuid)
+#        item.setText(request.query.name)
+#        item.setIcon(qta.icon('fa5s.spinner', color='green'))
+#        self.queriesListWidget.insertItem(0, item)
+        self.requestTableModel.insert(request)
 
-    def answer_received(self, err, uuid, query, answer) -> None:
-        print(uuid, '- Received answer for', query, 'with error code', err)
-        if err == 0:
-            json_answer = json.loads(answer)
+
+    def query_done_handler(self, request: RequestInfo) -> None:
+        print(request.uuid, '- Query done', request.query, 'with error code', request.error)
+ #       for i in range(self.queriesListWidget.count()):
+ #           item = self.queriesListWidget.item(i)
+ #           if item.uuid == request.uuid:
+ #               if request.error == 0:
+ #                   item.setIcon(qta.icon('fa5s.check-double', color='blue'))
+ #               else:
+ #                   item.setIcon(qta.icon('fa5s.skull-crossbones', color='red'))
+ #               #                self.queriesListWidget.takeItem(i)
+ #               break
+        self.requestTableModel.update(request)
+
+    def answer_received(self, request: RequestInfo) -> None:
+        print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
+        if request.error == 0:
+            json_answer = json.loads(request.answer)
             for attribute, value in json_answer.items():
                 if value['type'] == 'cursor':
                     columns = [column['name'] for column in value['columns']]
                     data = value['data']
                     df = pd.DataFrame(data=data, columns=columns)
                     table_window = TableWindow(df)
-                    table_window.setWindowTitle(query.name)
+                    table_window.setWindowTitle(request.query.name)
                     self.mdiArea.addSubWindow(table_window)
                     table_window.show()
 

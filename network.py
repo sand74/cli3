@@ -4,19 +4,7 @@ import uuid
 from PyQt5 import QtNetwork, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from models import Query
-
-
-class QueryRequestInfo(QObject):
-    def __init__(self, query, request):
-        super().__init__()
-        self.request = request
-        self.query = query
-        self.time = datetime.datetime.now()
-        self.uuid = uuid.uuid4()
-
-    def __str__(self):
-        return self.query
+from models import Query, RequestInfo
 
 
 class Session(QObject):
@@ -29,25 +17,21 @@ class Session(QObject):
     loggedInSignal = pyqtSignal(int, str)
     loggedOutSignal = pyqtSignal(int, str)
     getDoneSignal = pyqtSignal(int, str)
-    querySentSignal = pyqtSignal(int, object, object)
-    queryDoneSignal = pyqtSignal(int, object, object, object)
+    querySentSignal = pyqtSignal(object)
+    queryDoneSignal = pyqtSignal(object)
 
-    queryRequests = dict()
+    requests = dict()
 
-    def _create_query_request(self, query):
-        query_params = ''
-        for param in query.params:
-            query_params += '&' + param.name + (
-                '=' + param.value if param.value is not None and len(param.value) > 0 else '')
-        url = self._make_url('/api/docs/query?id=' + str(query.id)) + query_params
+    def _create_query_request(self, query: Query, params: dict = None):
+        url = self._make_url('/api/docs/query?' + query.make_request(params=params))
         req = QtNetwork.QNetworkRequest(QtCore.QUrl(url))
-        req_info = QueryRequestInfo(query=query, request=req)
+        req_info = RequestInfo(query=query, request=req)
         req.setOriginatingObject(req_info)
-        self.queryRequests[req_info.uuid] = req_info
+        self.requests[req_info.uuid] = req_info
         return req_info
 
     def _destroy_query_request(self, req_info):
-        del self.queryRequests[req_info.uuid]
+        del self.requests[req_info.uuid]
 
     def _make_url(self, path):
         return self._server + self._schema + path
@@ -102,19 +86,19 @@ class Session(QObject):
         else:
             self.getDoneSignal.emit(err, reply.errorString())
 
-    def send_query(self, query: Query):
-        req_info = self._create_query_request(query)
+    def send_query(self, query: Query, params: dict = None):
+        req_info = self._create_query_request(query, params)
         self._nam.finished.connect(self.query_done)
         self._nam.get(req_info.request)
-        self.querySentSignal.emit(0, req_info.uuid, req_info.query)
+        self.querySentSignal.emit(req_info)
 
     def query_done(self, reply):
         self._nam.finished.disconnect(self.query_done)
         req_info = reply.request().originatingObject()
-        err = reply.error()
-        if err == QtNetwork.QNetworkReply.NoError:
-            bytes_string = reply.readAll()
-            self.queryDoneSignal.emit(err, req_info.uuid, req_info.query, str(bytes_string, 'utf-8'))
+        req_info.error = reply.error()
+        if req_info.error == QtNetwork.QNetworkReply.NoError:
+            req_info.answer = str(reply.readAll(), 'utf-8')
         else:
-            self.queryDoneSignal.emit(err, req_info.uuid, req_info.query, reply.errorString())
+            req_info.answer = reply.errorString()
+        self.queryDoneSignal.emit(req_info)
         self._destroy_query_request(req_info)
