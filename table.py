@@ -5,6 +5,9 @@ from ui.table import Ui_TableWindow
 
 
 class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
+    """
+    Класс окна одной таблицы
+    """
     def __init__(self, dataframe):
         super().__init__()
         self.setupUi(self)
