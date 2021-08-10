@@ -1,11 +1,44 @@
-import datetime
 import uuid
+from threading import Lock
 
 from PyQt5 import QtNetwork, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from models import Query, RequestInfo
+from models import Query
 
+
+class Request(QObject):
+    """
+    Класс запроса по http
+    """
+    getDoneSignal = pyqtSignal(object)
+
+    def __init__(self, query: Query, params: dict = None):
+        super().__init__()
+        self.uuid = uuid.uuid4()
+        self.query = query
+        self.params = params
+        self.error = 0
+        self.answer = None
+
+    def send_get(self, nam: QtNetwork.QNetworkAccessManager, base_url):
+        self.url = base_url + '?' + self.query.make_request(params=self.params)
+        self.request = QtNetwork.QNetworkRequest(QtCore.QUrl(self.url))
+        self.reply = nam.get(self.request)
+        self.reply.finished.connect(self.get_done)
+
+    def get_done(self):
+        self.reply.finished.disconnect(self.get_done)
+        self.error = self.reply.error()
+        if self.error == QtNetwork.QNetworkReply.NoError:
+            bytes = self.reply.readAll()
+            self.answer = bytes.data().decode()
+        else:
+            self.answer = self.reply.errorString()
+        self.getDoneSignal.emit(self)
+
+    def __str__(self):
+        return self.query.name
 
 class Session(QObject):
     """
@@ -20,18 +53,9 @@ class Session(QObject):
     querySentSignal = pyqtSignal(object)
     queryDoneSignal = pyqtSignal(object)
 
+    query_lock = Lock()
+
     requests = dict()
-
-    def _create_query_request(self, query: Query, params: dict = None):
-        url = self._make_url('/api/docs/query?' + query.make_request(params=params))
-        req = QtNetwork.QNetworkRequest(QtCore.QUrl(url))
-        req_info = RequestInfo(query=query, request=req)
-        req.setOriginatingObject(req_info)
-        self.requests[req_info.uuid] = req_info
-        return req_info
-
-    def _destroy_query_request(self, req_info):
-        del self.requests[req_info.uuid]
 
     def _make_url(self, path):
         return self._server + self._schema + path
@@ -87,18 +111,15 @@ class Session(QObject):
             self.getDoneSignal.emit(err, reply.errorString())
 
     def send_query(self, query: Query, params: dict = None):
-        req_info = self._create_query_request(query, params)
-        self._nam.finished.connect(self.query_done)
-        self._nam.get(req_info.request)
-        self.querySentSignal.emit(req_info)
+        with(self.query_lock):
+            request = Request(query=query, params=params)
+            self.requests[request.uuid] = request
+            request.getDoneSignal.connect(self.query_done)
+            request.send_get(self._nam, self._make_url('/api/docs/query'))
+            self.querySentSignal.emit(request)
 
-    def query_done(self, reply):
-        self._nam.finished.disconnect(self.query_done)
-        req_info = reply.request().originatingObject()
-        req_info.error = reply.error()
-        if req_info.error == QtNetwork.QNetworkReply.NoError:
-            req_info.answer = str(reply.readAll(), 'utf-8')
-        else:
-            req_info.answer = reply.errorString()
-        self.queryDoneSignal.emit(req_info)
-        self._destroy_query_request(req_info)
+    def query_done(self, request: Request):
+        with(self.query_lock):
+            self.queryDoneSignal.emit(request)
+            if request.uuid in self.requests.keys():
+                del self.requests[request.uuid]

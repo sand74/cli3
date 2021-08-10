@@ -1,24 +1,36 @@
+import datetime
 import json
 import sys
 
 import pandas as pd
 import qtawesome as qta
 from PyQt5 import QtWidgets, QtNetwork
-from PyQt5.QtWidgets import QApplication, QToolButton
+from PyQt5.QtWidgets import QApplication, QToolButton, QTableWidgetItem, QTableWidget, QHeaderView
 
 from globals import Globals
 from input_dialog import InputDialog
 from login import LoginDialog
-from models import Query, Folder, QueryTreeItem, FolderTreeItem, QueryListItem, RequestTableModel
-from network import RequestInfo
+from models import Query, Folder, QueryTreeItem, FolderTreeItem
+from network import Request
 from table import TableWindow
 from ui.main_window import Ui_MainWindow
+
+
+class RequestTableColumns:
+    STATUS = (0, 'sent')
+    UUID = (1, 'uuid')
+    QUERY = (2, 'query')
+    SENT = (3, 'sent')
+    DONE = (4, 'done')
+    ERROR = (5, 'error')
+    INFO = (6, 'info')
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     """
     Главное окно приложения
     """
+
     def __init__(self):
         super().__init__()
         self.login_dialog = LoginDialog()
@@ -48,34 +60,59 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.foldersTreeWidget.itemDoubleClicked.connect(self._folders_tree_dbl_click)
 
     def setupLog(self):
-        self.requestTableModel = RequestTableModel()
-        self.requestTableView.setModel(self.requestTableModel)
+        self.requestTableWidget.setSelectionBehavior(QTableWidget.SelectRows)
+        self.requestTableWidget.horizontalHeaderItem(RequestTableColumns.STATUS[0]).setText('')
+        self.requestTableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
-    def query_sent_handler(self, request: RequestInfo) -> None:
+    def insert_request(self, request: Request):
+        self.requestTableWidget.insertRow(0)
+        status_widget = qta.IconWidget()
+        spin_icon = qta.icon('fa5s.spinner', color='green', animation=qta.Spin(status_widget))
+        status_widget.setIcon(spin_icon)
+        self.requestTableWidget.setCellWidget(0, RequestTableColumns.STATUS[0], status_widget)
+        self.requestTableWidget.setItem(0, RequestTableColumns.UUID[0],
+                                        QTableWidgetItem(str(request.uuid)))
+        self.requestTableWidget.setItem(0, RequestTableColumns.QUERY[0],
+                                        QTableWidgetItem(str(request.query.name)))
+        self.requestTableWidget.setItem(0, RequestTableColumns.SENT[0],
+                                        QTableWidgetItem(str(datetime.datetime.now())))
+        self.requestTableWidget.resizeColumnsToContents()
+
+    def update_request(self, request: Request):
+        item = None
+        idx = 0
+        for idx in range(self.requestTableWidget.rowCount()):
+            item = self.requestTableWidget.item(idx, 1)
+            if item.text() == str(request.uuid):
+                break
+        if item is not None:
+            self.requestTableWidget.setItem(idx, RequestTableColumns.DONE[0],
+                                            QTableWidgetItem(str(datetime.datetime.now())))
+            self.requestTableWidget.setItem(idx, RequestTableColumns.ERROR[0],
+                                            QTableWidgetItem(str(request.error)))
+            status_widget = self.requestTableWidget.cellWidget(idx, RequestTableColumns.STATUS[0])
+            if request.error == 0:
+                status_widget.setIcon(qta.icon('fa5s.check', color='blue'))
+                self.requestTableWidget.setItem(idx, RequestTableColumns.INFO[0],
+                                                QTableWidgetItem(f'{len(request.answer)} bytes received'))
+            else:
+                status_widget.setIcon(qta.icon('fa5s.skull-crossbones', color='red'))
+                self.requestTableWidget.setItem(idx, RequestTableColumns.INFO[0],
+                                                QTableWidgetItem(str(request.answer)))
+            self.requestTableWidget.resizeColumnsToContents()
+
+    def query_sent_handler(self, request: Request) -> None:
         print(request.uuid, '- Query sent', request.query, 'with error code', request.error)
-#        item = QueryListItem(query=request.query, uuid=request.uuid)
-#        item.setText(request.query.name)
-#        item.setIcon(qta.icon('fa5s.spinner', color='green'))
-#        self.queriesListWidget.insertItem(0, item)
-        self.requestTableModel.insert(request)
+        self.insert_request(request)
 
-
-    def query_done_handler(self, request: RequestInfo) -> None:
+    def query_done_handler(self, request: Request) -> None:
         print(request.uuid, '- Query done', request.query, 'with error code', request.error)
- #       for i in range(self.queriesListWidget.count()):
- #           item = self.queriesListWidget.item(i)
- #           if item.uuid == request.uuid:
- #               if request.error == 0:
- #                   item.setIcon(qta.icon('fa5s.check-double', color='blue'))
- #               else:
- #                   item.setIcon(qta.icon('fa5s.skull-crossbones', color='red'))
- #               #                self.queriesListWidget.takeItem(i)
- #               break
-        self.requestTableModel.update(request)
+        self.update_request(request)
 
-    def answer_received(self, request: RequestInfo) -> None:
+    def answer_received(self, request: Request) -> None:
         print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
+            print('Answer', request.answer)
             json_answer = json.loads(request.answer)
             for attribute, value in json_answer.items():
                 if value['type'] == 'cursor':

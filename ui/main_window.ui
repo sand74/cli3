@@ -122,15 +122,51 @@
     <bool>false</bool>
    </attribute>
   </widget>
-  <widget class="QDockWidget" name="dockWidget_2">
-   <attribute name="dockWidgetArea">
-    <number>8</number>
-   </attribute>
-   <widget class="QWidget" name="dockWidgetContents_2">
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QTableView" name="requestTableView"/>
-     </item>
+  <widget class="QDockWidget" name="logDocWidget">
+      <attribute name="dockWidgetArea">
+          <number>8</number>
+      </attribute>
+      <widget class="QWidget" name="dockWidgetContents_2">
+          <layout class="QHBoxLayout" name="horizontalLayout">
+              <item>
+                  <widget class="QTableWidget" name="requestTableWidget">
+                      <column>
+                          <property name="text">
+                              <string>status</string>
+                          </property>
+                      </column>
+                      <column>
+                          <property name="text">
+                              <string>uuid</string>
+                          </property>
+                      </column>
+                      <column>
+                          <property name="text">
+                              <string>query</string>
+                          </property>
+                      </column>
+                      <column>
+                          <property name="text">
+                              <string>sent</string>
+                          </property>
+                      </column>
+                      <column>
+                          <property name="text">
+                              <string>done</string>
+                          </property>
+                      </column>
+                      <column>
+                          <property name="text">
+                              <string>code</string>
+                          </property>
+                      </column>
+                      <column>
+                          <property name="text">
+                              <string>info</string>
+                          </property>
+                      </column>
+                  </widget>
+              </item>
     </layout>
    </widget>
   </widget>

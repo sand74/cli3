@@ -1,8 +1,10 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtCore import QDate
 
 from globals import Globals
 from models import Query, Param
 from ui.input_dialog import Ui_InputDialog
+
 
 class ParamMixin():
     def __init__(self, param: Param):
@@ -32,6 +34,13 @@ class NumberInputField(QtWidgets.QSpinBox, ParamMixin):
         return str(self.value())
 
 
+class DateInputField(QtWidgets.QDateEdit, ParamMixin):
+    def __init__(self, parent: QtWidgets.QWidget, param: Param):
+        super().__init__(parent=parent, param=param)
+
+    def get_value(self):
+        return self.date().toPyDate()
+
 class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
     """
     Диалоговое окно для означивания параметров запрося
@@ -52,6 +61,8 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
                         self._create_input_string(param)
                     elif param.type == 'NUMBER':
                         self._create_number_field(param)
+                    elif param.type == 'DATE':
+                        self._create_date_field(param)
                     else:
                         self._create_input_string(param)
                 else:
@@ -85,6 +96,21 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
         '''
         field = NumberInputField(self, param=param)
         field.setValue(int(param.value))
+        self._items.append(field)
+        self.fieldsFormLayout.addRow(param.title, field)
+
+    def _create_date_field(self, param: Param) -> None:
+        '''
+        QDateEdit для ввода даты
+        :param param: Модель параметра
+        '''
+        field = DateInputField(self, param=param)
+        if param.value.startswith('func='):
+            # TODO Здесь надо придумать что-то другое - небезопасно
+            date = eval(param.value[5:])
+            field.setDate(date)
+        else:
+            field.setDate(QDate.fromString(param.value))
         self._items.append(field)
         self.fieldsFormLayout.addRow(param.title, field)
 
