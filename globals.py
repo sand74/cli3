@@ -6,3 +6,8 @@ class Globals():
     Класс глобальных переменных, которые должны бать доступны из любого места приложения
     """
     session = Session('http://127.0.0.1:8000', 'common')
+
+    nci = {
+        #        'stations': None,
+        'roads': None,
+    }

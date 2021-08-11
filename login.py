@@ -1,10 +1,16 @@
+import json
+
+import pandas as pd
+import requests
 from PyQt5 import QtWidgets, QtNetwork, QtCore
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPalette, QColor
 from PyQt5.QtWidgets import QGraphicsColorizeEffect, QApplication
 
+from network import NetworkException
 from ui.login import Ui_dlgLogin
 from globals import Globals
+
 
 class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
     """
@@ -18,6 +24,8 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         self.setupUi(self)  # Это нужно для инициализации нашего дизайна
         self.buttonLogin.clicked.connect(self.login)
         self.buttonClose.clicked.connect(QApplication.quit)
+        self.loadProgressBar.setMinimum(0)
+        self.loadProgressBar.setTextVisible(True)
 
     def login(self) -> None:
         username = self.usernameLineEdit.text()
@@ -31,6 +39,7 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         if err == QtNetwork.QNetworkReply.NoError:
             self.labelStatus.setStyleSheet("color: green")
             self.labelStatus.setText('Success')
+            self.load_nci()
             self.loggedSignal.emit(0)
             self.accept()
         else:
@@ -38,5 +47,21 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             self.labelStatus.setStyleSheet("color: red")
             self.labelStatus.setText(message)
 
+    def _load_nci(self, name):
+        progress_message = f"Loading {name} ..."
+        self.loadProgressBar.setFormat(progress_message)
+        self.labelStatus.setText(progress_message)
+        err, message = Globals.session.get(f'/api/nci/{name}')
+        if err == QtNetwork.QNetworkReply.NoError:
+            json_message = json.loads(message)
+            Globals.nci[name] = pd.DataFrame(data=json_message['rows'], columns=json_message['columns'])
+        else:
+            raise NetworkException(err, message)
 
-
+    def load_nci(self):
+        self.loadProgressBar.setMaximum(len(Globals.nci.keys()))
+        step = 0
+        self.loadProgressBar.setValue(step)
+        for key in Globals.nci.keys():
+            self._load_nci(key)
+            self.loadProgressBar.setValue(++step)

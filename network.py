@@ -2,9 +2,14 @@ import uuid
 from threading import Lock
 
 from PyQt5 import QtNetwork, QtCore
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QEventLoop
 
 from models import Query
+
+
+class NetworkException(Exception):
+    def __init__(self, err: int, message: str):
+        self.__init__(f"Network error {err} - {message}")
 
 
 class Request(QObject):
@@ -53,6 +58,8 @@ class Session(QObject):
     querySentSignal = pyqtSignal(object)
     queryDoneSignal = pyqtSignal(object)
 
+    loop = QEventLoop()
+
     query_lock = Lock()
 
     requests = dict()
@@ -97,18 +104,18 @@ class Session(QObject):
             self.loggedOutSignal.emit(err, reply.errorString())
 
     def get(self, uri):
-        req = QtNetwork.QNetworkRequest(QtCore.QUrl(self._make_url(uri)))
-        self._nam.finished.connect(self.handle_get)
-        self._nam.get(req)
-
-    def handle_get(self, reply):
-        self._nam.finished.disconnect(self.handle_get)
-        err = reply.error()
-        if err == QtNetwork.QNetworkReply.NoError:
-            bytes_string = reply.readAll()
-            self.getDoneSignal.emit(err, str(bytes_string, 'utf-8'))
-        else:
-            self.getDoneSignal.emit(err, reply.errorString())
+        with(self.query_lock):
+            req = QtNetwork.QNetworkRequest(QtCore.QUrl(self._make_url(uri)))
+            self._nam.finished.connect(self.loop.quit)
+            reply = self._nam.get(req)
+            self.loop.exec_()
+            self._nam.finished.disconnect(self.loop.quit)
+            err = reply.error()
+            if err == QtNetwork.QNetworkReply.NoError:
+                bytes = reply.readAll()
+                return err, bytes.data().decode()
+            else:
+                return err, reply.errorString()
 
     def send_query(self, query: Query, params: dict = None):
         with(self.query_lock):

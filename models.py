@@ -46,10 +46,19 @@ class InputField(object):
     """
     Модель поля ввода
     """
+
     def __init__(self, field):
         super().__init__()
         self._type = field['type']
         self._desc = field['desc']
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def desc(self):
+        return self._desc
 
 
 class Param(object):
@@ -59,7 +68,7 @@ class Param(object):
     def __init__(self, param):
         super().__init__()
         self._name = param['name']
-        self._title = param['title']
+        self._title = param['title'] or param['name']
         self._type = param['type']
         self._value = param['value']
         self._field = InputField(param['input']) if param['input'] is not None else None

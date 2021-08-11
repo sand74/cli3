@@ -153,8 +153,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _fill_tree(self):
         self.foldersTreeWidget.clear()
-        Globals.session.getDoneSignal.connect(self._handle_fill)
-        Globals.session.get('/api/docs/tree')
+        #        Globals.session.getDoneSignal.connect(self._handle_fill)
+        err, message = Globals.session.get('/api/docs/tree')
+        if err == QtNetwork.QNetworkReply.NoError:
+            json_tree = json.loads(message)
+            for folder in json_tree['folders']:
+                folderItem = FolderTreeItem(folder=Folder(folder), widget=self.foldersTreeWidget)
+                item = self._makeItem(folderItem, folder)
+                folderItem.addChild(item)
+        else:
+            print("Error occured: ", err, message)
 
     def _makeItem(self, folderItem, folder, level=0):
         for subfolder in folder['folders']:
