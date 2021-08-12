@@ -102,11 +102,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.requestTableWidget.resizeColumnsToContents()
 
     def query_sent_handler(self, request: Request) -> None:
-        print(request.uuid, '- Query sent', request.query, 'with error code', request.error)
         self.insert_request(request)
 
     def query_done_handler(self, request: Request) -> None:
-        print(request.uuid, '- Query done', request.query, 'with error code', request.error)
         self.update_request(request)
 
     def answer_received(self, request: Request) -> None:

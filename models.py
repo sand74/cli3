@@ -166,6 +166,9 @@ class PandasTableModel(QAbstractTableModel):
     """
     Модель таблицы для представления датафрейма pandas
     """
+    ROW_INDEX_ROLE = Qt.UserRole + 1
+    ROW_AS_STRING_ROLE = Qt.UserRole + 2
+
     def __init__(self, dataframe):
         super().__init__()
         self._dataframe = dataframe
@@ -180,7 +183,14 @@ class PandasTableModel(QAbstractTableModel):
         if index.isValid():
             if role == Qt.DisplayRole:
                 return QtCore.QVariant(str(
-                    self._dataframe.iloc[index.row()][index.column()]))
+                    self._dataframe.iloc[index.row(), index.column()]))
+            elif role == Qt.EditRole:
+                return QtCore.QVariant(str(
+                    self._dataframe.iloc[index.row(), index.column()]))
+            elif role == self.ROW_INDEX_ROLE:
+                return self._dataframe.index[index.row()]
+            elif role == self.ROW_AS_STRING_ROLE:
+                return '|'.join(self._dataframe.iloc[index.row(), :])
         return QtCore.QVariant()
 
     def headerData(self, column, orientation, role=QtCore.Qt.DisplayRole):

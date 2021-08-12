@@ -28,6 +28,7 @@ class Request(QObject):
 
     def send_get(self, nam: QtNetwork.QNetworkAccessManager, base_url):
         self.url = base_url + '?' + self.query.make_request(params=self.params)
+        print('Send query', self.url)
         self.request = QtNetwork.QNetworkRequest(QtCore.QUrl(self.url))
         self.reply = nam.get(self.request)
         self.reply.finished.connect(self.get_done)
@@ -40,6 +41,7 @@ class Request(QObject):
             self.answer = bytes.data().decode()
         else:
             self.answer = self.reply.errorString()
+        print('Reqceive answer', self.answer)
         self.getDoneSignal.emit(self)
 
     def __str__(self):

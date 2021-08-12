@@ -43,7 +43,6 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             self.loggedSignal.emit(0)
             self.accept()
         else:
-            print("Error occured: ", err)
             self.labelStatus.setStyleSheet("color: red")
             self.labelStatus.setText(message)
 
@@ -54,7 +53,9 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         err, message = Globals.session.get(f'/api/nci/{name}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_message = json.loads(message)
-            Globals.nci[name] = pd.DataFrame(data=json_message['rows'], columns=json_message['columns'])
+            Globals.nci[name] = pd.DataFrame(data=json_message['rows'],
+                                             columns=json_message['columns'],
+                                             index=json_message['index'])
         else:
             raise NetworkException(err, message)
 
