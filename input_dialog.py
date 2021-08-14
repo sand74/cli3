@@ -3,7 +3,9 @@ from PyQt5.QtCore import QDate, QModelIndex, QSortFilterProxyModel, Qt, QObject,
 from PyQt5.QtWidgets import QSizePolicy, QTableWidget, QCompleter, QHeaderView
 
 from globals import Globals
-from models import Query, Param, PandasTableModel
+from models import Query, Param
+from nci_table import NciCompleter, NciTableView, NciTableModel
+from table import PandasTableModel
 from ui.input_dialog import Ui_InputDialog
 from datetime import datetime
 
@@ -92,90 +94,6 @@ class ExtendedComboBox(QtWidgets.QComboBox):
         super(ExtendedComboBox, self).setModelColumn(column)
 
 
-class CustomComplter(QCompleter):
-    activatedSignal = pyqtSignal(object)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.activated[QtCore.QModelIndex].connect(self.item_activated)
-
-    @pyqtSlot(QtCore.QModelIndex)
-    def item_activated(self, index: QModelIndex):
-        data = index.model().data(index, self.completionRole())
-        index_list = self.model().match(self.model().index(0, self.completionColumn()),
-                                        self.completionRole(), data,
-                                        1, Qt.MatchExactly)
-        if len(index_list) > 0:
-            self.activatedSignal.emit(index_list[0])
-
-    def pathFromIndex(self, index: QtCore.QModelIndex) -> str:
-        new_idx = self.model().index(index.row(), self.completionColumn())
-        data = self.model().data(new_idx)
-        if isinstance(data, str):
-            return data
-        else:
-            return data.value()
-
-
-class TableSelectField(ParamMixin, QtWidgets.QLineEdit):
-    def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        QtWidgets.QLineEdit.__init__(self, parent)
-        ParamMixin.__init__(self, param)
-
-        self.value = None
-
-        self.setFocusPolicy(Qt.StrongFocus)
-        # TableView
-        self.table_view = QtWidgets.QTableView(self)
-        self.table_view.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table_view.horizontalHeader().hide()
-        # Table model
-        self.table_model = PandasTableModel(Globals.nci[param.field.desc['table']])
-        self.filter_model = QSortFilterProxyModel(self)
-        self.filter_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
-        self.filter_model.setFilterKeyColumn(-1)
-        self.filter_model.setSourceModel(self.table_model)
-        # add a completer, which uses the filter model
-        self.completer = CustomComplter(self)
-        # always show all (filtered) completions
-        self.completer.setCompletionMode(QCompleter.PopupCompletion)
-        self.completer.setPopup(self.table_view)
-        self.completer.setCompletionColumn(1)
-        self.completer.setModel(self.table_model)
-        self.completer.setFilterMode(Qt.MatchContains)
-        self.completer.setModelSorting(QCompleter.CaseInsensitivelySortedModel)
-        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.setCompleter(self.completer)
-        self.completer.setCompletionRole(PandasTableModel.ROW_AS_STRING_ROLE)
-        self.completer.activated[QtCore.QModelIndex].connect(self.item_activated)
-        self.textChanged.connect(self.text_changed)
-
-    @pyqtSlot(str)
-    def text_changed(self, text: str):
-        self.value = None
-
-    @pyqtSlot(QModelIndex)
-    def item_activated(self, index: QModelIndex):
-        self.blockSignals(True)
-        data = index.model().data(index, self.completer.completionRole())
-        index_list = self.completer.model().match(
-            self.completer.model().index(0, self.completer.completionColumn()),
-            self.completer.completionRole(), data,
-            1, Qt.MatchExactly)
-        if len(index_list) > 0:
-            self.value = self.completer.model().data(index_list[0], PandasTableModel.ROW_INDEX_ROLE)
-        else:
-            self.value = None
-        self.blockSignals(False)
-
-    def get_value(self):
-        if self.value is not None:
-            return self.value
-        else:
-            return self.text()
-
-
 class ComboSelectField(ParamMixin, QtWidgets.QComboBox):
     def __init__(self, parent: QtWidgets.QWidget, param: Param):
         QtWidgets.QComboBox.__init__(self, parent)
@@ -185,6 +103,30 @@ class ComboSelectField(ParamMixin, QtWidgets.QComboBox):
 
     def get_value(self):
         return self.currentData()
+
+
+class NciSelectField(ParamMixin, QtWidgets.QComboBox):
+    def __init__(self, parent: QtWidgets.QWidget, param: Param):
+        QtWidgets.QComboBox.__init__(self, parent)
+        ParamMixin.__init__(self, param)
+        self.table_view = NciTableView(self)
+        self.table_model = NciTableModel(Globals.nci[param.field.desc['table']], 20)
+        self.setView(self.table_view)
+        self.setModel(self.table_model)
+        self.setModelColumn(1)
+        self.setMinimumWidth(400)
+        self.setEditable(True)
+        self.lineEdit().textEdited.connect(self.text_changed)
+        self.setMaxCount(20)
+
+    def text_changed(self, new_text):
+        self.table_model.setFilter(new_text)
+        self.setModel(self.table_model)
+
+    def get_value(self):
+        index = self.model().index(self.currentIndex(), 0)
+        data = self.model().data(index).value()
+        return data
 
 
 class RoadSelectField(QtWidgets.QComboBox, ParamMixin):
@@ -234,7 +176,9 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
                             if index >= 0:
                                 field.setCurrentIndex(index)
                         elif 'table' in param.field.desc.keys():
-                            field = TableSelectField(self, param=param)
+                            field = NciSelectField(self, param=param)
+                            field.setCurrentText(param.value)
+                            field.text_changed(param.value)
 
                     else:
                         field = StringInputField(self, param=param)

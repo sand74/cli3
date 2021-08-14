@@ -4,7 +4,8 @@ import sys
 
 import pandas as pd
 import qtawesome as qta
-from PyQt5 import QtWidgets, QtNetwork
+from PyQt5 import QtWidgets, QtNetwork, QtGui
+from PyQt5.QtCore import QSettings, QCoreApplication
 from PyQt5.QtWidgets import QApplication, QToolButton, QTableWidgetItem, QTableWidget, QHeaderView
 
 from globals import Globals
@@ -43,6 +44,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # init widgets
         self.setupNav()
         self.setupLog()
+        self.readSettings()
         # init actions
         # init menu actions
         self.actionExit.triggered.connect(lambda: QApplication.exit())
@@ -63,6 +65,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.requestTableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.requestTableWidget.horizontalHeaderItem(RequestTableColumns.STATUS[0]).setText('')
         self.requestTableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        self.writeSettings()
+        super(MainWindow, self).closeEvent(a0)
+
+    def writeSettings(self):
+        settings = QSettings(QCoreApplication.organizationName(), QCoreApplication.applicationName())
+        settings.beginGroup(self.__class__.__name__)
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("windowState", self.saveState())
+        settings.endGroup()
+
+    def readSettings(self):
+        settings = QSettings(QCoreApplication.organizationName(), QCoreApplication.applicationName())
+        settings.beginGroup(self.__class__.__name__)
+        if settings.contains("geometry"):
+            self.restoreGeometry(settings.value("geometry"))
+        if settings.contains("windowState"):
+            self.restoreState(settings.value("windowState"))
+        settings.endGroup()
 
     def insert_request(self, request: Request):
         self.requestTableWidget.insertRow(0)

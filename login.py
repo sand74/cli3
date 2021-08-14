@@ -1,4 +1,5 @@
 import json
+import os
 
 import pandas as pd
 import requests
@@ -47,9 +48,6 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             self.labelStatus.setText(message)
 
     def _load_nci(self, name):
-        progress_message = f"Loading {name} ..."
-        self.loadProgressBar.setFormat(progress_message)
-        self.labelStatus.setText(progress_message)
         err, message = Globals.session.get(f'/api/nci/{name}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_message = json.loads(message)
@@ -64,5 +62,13 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         step = 0
         self.loadProgressBar.setValue(step)
         for key in Globals.nci.keys():
-            self._load_nci(key)
+            progress_message = f"Loading {key} ..."
+            self.loadProgressBar.setFormat(progress_message)
+            self.labelStatus.setText(progress_message)
+            data_file = f'data/{key}.csv'
+            if os.path.exists(data_file):
+                Globals.nci[key] = pd.read_csv(data_file, dtype=str)
+            else:
+                self._load_nci(key)
+                Globals.nci[key].to_csv(data_file, index=False)
             self.loadProgressBar.setValue(++step)
