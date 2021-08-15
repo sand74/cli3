@@ -126,7 +126,7 @@ class NciSelectField(ParamMixin, QtWidgets.QComboBox):
     def get_value(self):
         index = self.model().index(self.currentIndex(), 0)
         data = self.model().data(index).value()
-        return data
+        return data if data is not None else self.currentText()
 
 
 class RoadSelectField(QtWidgets.QComboBox, ParamMixin):

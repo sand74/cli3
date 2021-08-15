@@ -7,13 +7,14 @@ import qtawesome as qta
 from PyQt5 import QtWidgets, QtNetwork, QtGui
 from PyQt5.QtCore import QSettings, QCoreApplication
 from PyQt5.QtWidgets import QApplication, QToolButton, QTableWidgetItem, QTableWidget, QHeaderView
+from django.core.serializers import deserialize
 
 from globals import Globals
 from input_dialog import InputDialog
 from login import LoginDialog
 from models import Query, Folder, QueryTreeItem, FolderTreeItem
 from network import Request
-from table import TableWindow
+from table import TableWindow, Cli3TableModel
 from ui.main_window import Ui_MainWindow
 
 
@@ -136,11 +137,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             json_answer = json.loads(request.answer)
             for attribute, value in json_answer.items():
                 if value['type'] == 'cursor':
-                    columns = [column['name'] for column in value['columns']]
+                    columns = value['columns']
                     data = value['data']
-                    df = pd.DataFrame(data=data, columns=columns)
-                    table_window = TableWindow(df)
+                    model = Cli3TableModel(data, columns)
+                    table_window = TableWindow()
                     table_window.setWindowTitle(request.query.name)
+                    table_window.setModel(model)
                     self.mdiArea.addSubWindow(table_window)
                     table_window.show()
 
