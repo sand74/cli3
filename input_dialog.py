@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import QSizePolicy, QTableWidget, QCompleter, QHeaderView
 from globals import Globals
 from models import Query, Param
 from nci_table import NciCompleter, NciTableView, NciTableModel
-from table import PandasTableModel
 from ui.input_dialog import Ui_InputDialog
 from datetime import datetime
 

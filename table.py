@@ -1,11 +1,16 @@
+import json
+
 import pandas as pd
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtNetwork
 from PyQt5.QtCore import QSortFilterProxyModel, QAbstractTableModel, Qt, QDateTime, QDate, QModelIndex, \
     QAbstractItemModel, QItemSelection, QVariant, QItemSelectionModel
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QAbstractItemView, QHeaderView
 import qtawesome as qta
 
+from globals import Globals
+from models import Query
+from network import Request
 from ui.table import Ui_TableWindow
 
 
@@ -67,6 +72,16 @@ class Cli3TableModel(QAbstractTableModel):
                 self._source[name] = self._source[name].apply(lambda x: str(x).lower() == 'true').astype('bool')
         self._visable_columns = [column['name'] for column in columns]
         self._dataframe = self._source.loc[:, self._visable_columns]
+
+    def get_source_index(self, index: QModelIndex):
+        if index.row() >= 0 and index.row() < len(self._dataframe.values):
+            if index.column() >= 0 and index.column() < len(self._dataframe.columns):
+                return self._dataframe.index[index.row()], self._dataframe.columns[index.column()]
+        return None, None
+
+    @property
+    def source(self):
+        return self._source
 
     # Filters section
     def get_filters(self):
@@ -169,9 +184,50 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
     Класс окна одной таблицы
     """
 
-    def __init__(self):
+    def __init__(self, request: Request):
         super().__init__()
         self.setupUi(self)
+        self._answer = json.loads(request.answer)
+        for attribute, value in self._answer.items():
+            if value['type'] == 'cursor':
+                columns = value['columns']
+                data = value['data']
+                model = Cli3TableModel(data, columns)
+                self.setModel(model)
+                break
+        self.setWindowTitle(request.query.name)
+        self._request = request
+        self.tableView.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tableView.customContextMenuRequested.connect(self._show_context_menu)
+
+    def _show_context_menu(self, point):
+        index = self.tableView.indexAt(point)
+        if not index.isValid():
+            return
+        print(index.row(), index.column(), '=>', self.tableView.model().get_source_index(index))
+        menu = QtWidgets.QMenu()
+        if self._request.query.has_subqueries():
+            for subquery in self._request.query.subqueries:
+                action = menu.addAction(subquery.name)
+                action.setIcon(qta.icon('fa5s.paper-plane', color='green'))
+                action.triggered.connect(lambda x: self._send_query(index, subquery))
+            menu.addSeparator()
+            action = menu.addAction("Cancel")
+            menu.exec_(self.tableView.mapToGlobal(point))
+
+    def _send_query(self, index, query):
+        print('Query', query)
+        err, message = Globals.session.get(f'{Globals.QUERY_API}?id={query.id}')
+        if err == QtNetwork.QNetworkReply.NoError:
+            json_query = json.loads(message)
+            query = Query(json_query)
+            idx = self.tableView.model().get_source_index(index)
+            row = self.tableView.model().source.loc[idx[0], :]
+            print(row.index)
+            for param in query.in_params:
+                if param.name in row.index:
+                    param.value = row[param.name]
+            Globals.session.send_query(query)
 
     def setModel(self, model: QAbstractTableModel):
         self.tableView.setModel(model)
@@ -184,8 +240,10 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         self.tableView.setSortingEnabled(True)
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.filterButton.setIcon(qta.icon('fa5s.filter', color='grey'))
+        self.refreshButton.setIcon(qta.icon('fa5s.sync', color='grey'))
         # init menu actions
         self.filterButton.clicked.connect(self._filter_model)
+        self.refreshButton.clicked.connect(self._refresh_model)
 
     def _selection_changed(self, new_selection, old_selection):
         self._update_filter_button()
@@ -211,3 +269,25 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
             idx = self.tableView.model().index(0, indexes[0].column())
             self.tableView.selectionModel().select(idx, QItemSelectionModel.ClearAndSelect)
             self.tableView.resizeColumnToContents(indexes[0].column())
+
+    def _refresh_model(self):
+        self._request.getDoneSignal.connect(self._model_refreshed)
+        Globals.session.send_request(self._request)
+        Globals.session.requestSentSignal.emit(self._request)
+        self.refreshButton.setDisabled(True)
+
+    def _model_refreshed(self, request: Request):
+        self._request.getDoneSignal.disconnect(self._model_refreshed)
+        self._request = request
+        Globals.session.requestDoneSignal.emit(self._request)
+        print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
+        if request.error == 0:
+            print('Answer', request.answer)
+            json_answer = json.loads(request.answer)
+            for attribute, value in json_answer.items():
+                if value['type'] == 'cursor':
+                    columns = value['columns']
+                    data = value['data']
+                    model = Cli3TableModel(data, columns)
+                    self.setModel(model=model)
+        self.refreshButton.setDisabled(False)

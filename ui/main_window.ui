@@ -58,16 +58,19 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QDockWidget" name="navDockWidget">
-   <attribute name="dockWidgetArea">
-    <number>1</number>
-   </attribute>
-   <widget class="QWidget" name="dockWidgetContents">
-    <layout class="QVBoxLayout" name="verticalLayout_2">
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
-       <item>
-        <widget class="QToolButton" name="refreshFoldersButton">
-         <property name="text">
+      <property name="features">
+          <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+      </property>
+      <attribute name="dockWidgetArea">
+          <number>1</number>
+      </attribute>
+      <widget class="QWidget" name="dockWidgetContents">
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+              <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_2">
+                      <item>
+                          <widget class="QToolButton" name="refreshFoldersButton">
+                              <property name="text">
           <string>...</string>
          </property>
         </widget>
@@ -122,54 +125,63 @@
     <bool>false</bool>
    </attribute>
   </widget>
-  <widget class="QDockWidget" name="logDocWidget">
-      <attribute name="dockWidgetArea">
-          <number>8</number>
-      </attribute>
-      <widget class="QWidget" name="dockWidgetContents_2">
-          <layout class="QHBoxLayout" name="horizontalLayout">
-              <item>
-                  <widget class="QTableWidget" name="requestTableWidget">
-                      <column>
-                          <property name="text">
-                              <string>status</string>
-                          </property>
-                      </column>
-                      <column>
-                          <property name="text">
-                              <string>uuid</string>
-                          </property>
-                      </column>
-                      <column>
-                          <property name="text">
-                              <string>query</string>
-                          </property>
-                      </column>
-                      <column>
-                          <property name="text">
-                              <string>sent</string>
-                          </property>
-                      </column>
-                      <column>
-                          <property name="text">
-                              <string>done</string>
-                          </property>
-                      </column>
-                      <column>
-                          <property name="text">
-                              <string>code</string>
-                          </property>
-                      </column>
-                      <column>
-                          <property name="text">
-                              <string>info</string>
-                          </property>
-                      </column>
-                  </widget>
-              </item>
-    </layout>
-   </widget>
-  </widget>
+     <widget class="QDockWidget" name="logDocWidget">
+         <property name="features">
+             <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+         </property>
+         <attribute name="dockWidgetArea">
+             <number>8</number>
+         </attribute>
+         <widget class="QWidget" name="dockWidgetContents_2">
+             <layout class="QHBoxLayout" name="horizontalLayout">
+                 <item>
+                     <widget class="QTableWidget" name="requestTableWidget">
+                         <property name="editTriggers">
+                             <set>QAbstractItemView::NoEditTriggers</set>
+                         </property>
+                         <property name="textElideMode">
+                             <enum>Qt::ElideNone</enum>
+                         </property>
+                         <column>
+                             <property name="text">
+                                 <string>status</string>
+                             </property>
+                         </column>
+                         <column>
+                             <property name="text">
+                                 <string>uuid</string>
+                             </property>
+                         </column>
+                         <column>
+                             <property name="text">
+                                 <string>query</string>
+                             </property>
+                         </column>
+                         <column>
+                             <property name="text">
+                                 <string>sent</string>
+                             </property>
+                         </column>
+                         <column>
+                             <property name="text">
+                                 <string>done</string>
+                             </property>
+                         </column>
+                         <column>
+                             <property name="text">
+                                 <string>code</string>
+                             </property>
+                         </column>
+                         <column>
+                             <property name="text">
+                                 <string>info</string>
+                             </property>
+                         </column>
+                     </widget>
+                 </item>
+             </layout>
+         </widget>
+     </widget>
   <action name="actionSave">
    <property name="text">
     <string>Save</string>

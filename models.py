@@ -89,6 +89,10 @@ class Param(object):
     def value(self):
         return self._value
 
+    @value.setter
+    def value(self, value):
+        self._value = value
+
     @property
     def field(self):
         return self._field
@@ -107,9 +111,13 @@ class Query(object):
         self._id = query['id']
         self._name = query['name']
         self._url = query['url']
+        self._type = query.get('type', 'table')
         self._params = []
-        for param in query['params']:
-            self._params.append(Param(param))
+        for param, value in query.get('params', {}).items():
+            self._params.append(Param(value))
+        self._subqueries = []
+        for subquery in query.get('subqueries', []):
+            self._subqueries.append(Query(subquery))
 
     def __str__(self):
         return f'Query {self._name} for {self._url} has {len(self._params)} params'
@@ -127,11 +135,26 @@ class Query(object):
         return self._url
 
     @property
+    def type(self):
+        return self._type
+
+    @property
     def params(self):
         return self._params
 
+    @property
+    def in_params(self):
+        return [param for param in self._params if param.type not in ['CURSOR', 'TEXT']]
+
+    @property
+    def subqueries(self):
+        return self._subqueries
+
+    def has_subqueries(self):
+        return len(self._subqueries) > 0
+
     def has_in_params(self):
-        return len([param for param in self._params if param.type not in ['CURSOR', 'TEXT']]) > 0
+        return len(self.in_params) > 0
 
     def make_request(self, params=None):
         if params is None:

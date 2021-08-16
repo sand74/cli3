@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 import qtawesome as qta
 from PyQt5 import QtWidgets, QtNetwork, QtGui
-from PyQt5.QtCore import QSettings, QCoreApplication
+from PyQt5.QtCore import QSettings, QCoreApplication, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QToolButton, QTableWidgetItem, QTableWidget, QHeaderView
 from django.core.serializers import deserialize
 
@@ -14,7 +14,7 @@ from input_dialog import InputDialog
 from login import LoginDialog
 from models import Query, Folder, QueryTreeItem, FolderTreeItem
 from network import Request
-from table import TableWindow, Cli3TableModel
+from table import TableWindow
 from ui.main_window import Ui_MainWindow
 
 
@@ -50,9 +50,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # init menu actions
         self.actionExit.triggered.connect(lambda: QApplication.exit())
         # init query actions
-        Globals.session.querySentSignal.connect(self.query_sent_handler)
-        Globals.session.queryDoneSignal.connect(self.query_done_handler)
-        Globals.session.queryDoneSignal.connect(self.answer_received)
+        Globals.session.answerReceivedSignal.connect(self.answer_received)
+        Globals.session.requestSentSignal.connect(self.insert_request)
+        Globals.session.requestDoneSignal.connect(self.update_request)
 
     def setupNav(self):
         self.refreshFoldersButton.setIcon(qta.icon('fa5s.sync', color='green'))
@@ -87,6 +87,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.restoreState(settings.value("windowState"))
         settings.endGroup()
 
+    def get_window_list(self):
+        sub_windows = self.mdiArea.subWindowList()
+        for sub_window in sub_windows:
+            print(sub_window.windowTitle())
+
     def insert_request(self, request: Request):
         self.requestTableWidget.insertRow(0)
         status_widget = qta.IconWidget()
@@ -104,11 +109,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def update_request(self, request: Request):
         item = None
         idx = 0
+        found = False
         for idx in range(self.requestTableWidget.rowCount()):
             item = self.requestTableWidget.item(idx, 1)
             if item.text() == str(request.uuid):
+                found = True
                 break
-        if item is not None:
+        if found:
             self.requestTableWidget.setItem(idx, RequestTableColumns.DONE[0],
                                             QTableWidgetItem(str(datetime.datetime.now())))
             self.requestTableWidget.setItem(idx, RequestTableColumns.ERROR[0],
@@ -124,27 +131,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                                 QTableWidgetItem(str(request.answer)))
             self.requestTableWidget.resizeColumnsToContents()
 
-    def query_sent_handler(self, request: Request) -> None:
-        self.insert_request(request)
-
-    def query_done_handler(self, request: Request) -> None:
-        self.update_request(request)
-
     def answer_received(self, request: Request) -> None:
         print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
             print('Answer', request.answer)
-            json_answer = json.loads(request.answer)
-            for attribute, value in json_answer.items():
-                if value['type'] == 'cursor':
-                    columns = value['columns']
-                    data = value['data']
-                    model = Cli3TableModel(data, columns)
-                    table_window = TableWindow()
-                    table_window.setWindowTitle(request.query.name)
-                    table_window.setModel(model)
-                    self.mdiArea.addSubWindow(table_window)
-                    table_window.show()
+            window = None
+            if request.query.type == 'table':
+                window = TableWindow(request)
+            else:
+                window = TableWindow(request)
+            self.mdiArea.addSubWindow(window)
+            window.show()
+
+        self.get_window_list()
 
     def _folders_tree_context_menu(self, point):
         index = self.foldersTreeWidget.indexAt(point)
@@ -166,17 +165,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _send_query(self, query: Query):
         print('Query', query)
+        err, message = Globals.session.get(f'{Globals.QUERY_API}?id={query.id}')
+        if err == QtNetwork.QNetworkReply.NoError:
+            json_query = json.loads(message)
+            query = Query(json_query)
         if query.has_in_params():
             input_dialog = InputDialog(query, self)
             input_dialog.setModal(True)
             input_dialog.show()
         else:
             Globals.session.send_query(query)
+        return query
 
     def _fill_tree(self):
         self.foldersTreeWidget.clear()
         #        Globals.session.getDoneSignal.connect(self._handle_fill)
-        err, message = Globals.session.get('/api/docs/tree')
+        err, message = Globals.session.get(f'{Globals.FOLDERS_API}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_tree = json.loads(message)
             for folder in json_tree['folders']:
@@ -199,13 +203,3 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             folderItem.addChild(item)
         return folderItem
 
-    def _handle_fill(self, err, message):
-        Globals.session.getDoneSignal.disconnect(self._handle_fill)
-        if err == QtNetwork.QNetworkReply.NoError:
-            json_tree = json.loads(message)
-            for folder in json_tree['folders']:
-                folderItem = FolderTreeItem(folder=Folder(folder), widget=self.foldersTreeWidget)
-                item = self._makeItem(folderItem, folder)
-                folderItem.addChild(item)
-        else:
-            print("Error occured: ", err, message)

@@ -51,14 +51,17 @@ class Session(QObject):
     """
     Класс дла хранения сессии связи с сервером профилей пользователей
     """
+    REQUEST_URL = '/api/docs/request'
     _nam = QtNetwork.QNetworkAccessManager()
     LOGIN_URL = '/api/auth/signin'
     LOGOUT_URL = '/api/auth/logout'
     loggedInSignal = pyqtSignal(int, str)
     loggedOutSignal = pyqtSignal(int, str)
     getDoneSignal = pyqtSignal(int, str)
-    querySentSignal = pyqtSignal(object)
-    queryDoneSignal = pyqtSignal(object)
+    requestSentSignal = pyqtSignal(object)
+    requestDoneSignal = pyqtSignal(object)
+    answerReceivedSignal = pyqtSignal(object)
+    answerErrorSignal = pyqtSignal(object)
 
     loop = QEventLoop()
 
@@ -119,16 +122,24 @@ class Session(QObject):
             else:
                 return err, reply.errorString()
 
+    def send_request(self, request: Request):
+        request.send_get(self._nam, self._make_url(self.REQUEST_URL))
+
     def send_query(self, query: Query, params: dict = None):
         with(self.query_lock):
             request = Request(query=query, params=params)
             self.requests[request.uuid] = request
             request.getDoneSignal.connect(self.query_done)
-            request.send_get(self._nam, self._make_url('/api/docs/query'))
-            self.querySentSignal.emit(request)
+            self.send_request(request)
+            self.requestSentSignal.emit(request)
 
     def query_done(self, request: Request):
         with(self.query_lock):
-            self.queryDoneSignal.emit(request)
+            request.getDoneSignal.disconnect(self.query_done)
+            self.requestDoneSignal.emit(request)
+            if request.error == QtNetwork.QNetworkReply.NoError:
+                self.answerReceivedSignal.emit(request)
+            else:
+                self.answerErrorSignal.emit(request)
             if request.uuid in self.requests.keys():
                 del self.requests[request.uuid]
