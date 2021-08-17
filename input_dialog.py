@@ -1,113 +1,150 @@
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import QDate, QModelIndex, QSortFilterProxyModel, Qt, QObject, pyqtSlot, pyqtSignal
-from PyQt5.QtWidgets import QSizePolicy, QTableWidget, QCompleter, QHeaderView
+from datetime import datetime
+from typing import Any
+
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import QDate
 
 from globals import Globals
 from models import Query, Param
-from nci_table import NciCompleter, NciTableView, NciTableModel
+from nci_table import NciTableView, NciTableModel
 from ui.input_dialog import Ui_InputDialog
-from datetime import datetime
 
 
 class ParamMixin(object):
+    """
+    Mixin for using in all input field
+    """
+
     def __init__(self, param: Param, *args, **kwargs):
         self._param = param
 
     @property
-    def name(self):
+    def name(self) -> str:
+        """
+        Field name for field label
+        :return: field name
+        """
         return self._param.name
 
-    def get_value(self) -> str:
+    def get_value(self) -> Any:
+        """
+        Field value for collect values from all fields when submit
+        :return: field value
+        """
         return self._param.value
 
 
 class StringInputField(QtWidgets.QLineEdit, ParamMixin):
-    def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        super().__init__(parent=parent, param=param)
+    """
+    Input field for string line input
+    """
 
-    def get_value(self):
+    def __init__(self, parent: QtWidgets.QWidget, param: Param):
+        """
+        Constructor for QLineText + ParamMixin
+        :param parent: parent widget
+        :param param: param model for associate
+        """
+        super().__init__(parent=parent, param=param)
+        self.setText(param.value)
+
+    def get_value(self) -> str:
+        """
+        Overrides from ParamMixin
+        :return: value of this field
+        """
         return self.text()
 
 
 class NumberInputField(QtWidgets.QSpinBox, ParamMixin):
-    def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        super().__init__(parent=parent, param=param)
+    """
+    Input field for input number
+    """
 
-    def get_value(self):
+    def __init__(self, parent: QtWidgets.QWidget, param: Param):
+        """
+        Constructor for QSpinBox + ParamMixin
+        :param parent: parent widget
+        :param param: param model for associate
+        """
+        super().__init__(parent=parent, param=param)
+        self.setValue(int(param.value))
+
+    def get_value(self) -> str:
+        """
+        Overrides from ParamMixin
+        :return: value of this field
+        """
         return str(self.value())
 
 
 class DateInputField(QtWidgets.QDateEdit, ParamMixin):
-    def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        super().__init__(parent=parent, param=param)
+    """
+    Input field for input date
+    """
 
-    def get_value(self):
+    def __init__(self, parent: QtWidgets.QWidget, param: Param):
+        """
+        Constructor for QDateEdit + ParamMixin
+        :param parent: parent widget
+        :param param: param model for associate
+        """
+        super().__init__(parent=parent, param=param)
+        if param.value.startswith('func='):
+            # TODO Здесь надо придумать что-то другое - небезопасно
+            date = eval(param.value[5:])
+            self.setDate(date)
+        else:
+            self.setDate(QDate.fromString(param.value))
+
+    def get_value(self) -> datetime.date:
+        """
+        Overrides from ParamMixin
+        :return: value of this field
+        """
         return self.date().toPyDate()
 
 
-class ExtendedComboBox(QtWidgets.QComboBox):
-    def __init__(self, parent: QtWidgets.QWidget):
-        super(ExtendedComboBox, self).__init__(parent)
+class ComboSelectField(QtWidgets.QComboBox, ParamMixin):
+    """
+    Input field for static combo values
+    """
 
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setEditable(True)
-
-        # add a filter model to filter matching items
-        self.pFilterModel = QSortFilterProxyModel(self)
-        self.pFilterModel.setFilterCaseSensitivity(Qt.CaseInsensitive)
-        self.pFilterModel.setSourceModel(self.model())
-
-        # add a completer, which uses the filter model
-        self.completer = QCompleter(self.pFilterModel, self)
-        # always show all (filtered) completions
-        self.completer.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
-        self.completer.setPopup(self.view())
-        self.setCompleter(self.completer)
-
-        # connect signals
-        self.lineEdit().textEdited.connect(self.pFilterModel.setFilterFixedString)
-        self.completer.activated.connect(self.on_completer_activated)
-
-    def view(self):
-        return self.completer.popup()
-
-    def index(self):
-        return self.currentIndex()
-
-    # on selection of an item from the completer, select the corresponding item from combobox
-    def on_completer_activated(self, text):
-        if text:
-            index = self.findText(text)
-            self.setCurrentIndex(index)
-
-    # on model change, update the models of the filter and completer as well
-    def setModel(self, model):
-        super(ExtendedComboBox, self).setModel(model)
-        self.pFilterModel.setSourceModel(model)
-        self.completer.setModel(self.pFilterModel)
-
-    # on model column change, update the model column of the filter and completer as well
-    def setModelColumn(self, column):
-        self.completer.setCompletionColumn(column)
-        self.pFilterModel.setFilterKeyColumn(column)
-        super(ExtendedComboBox, self).setModelColumn(column)
-
-
-class ComboSelectField(ParamMixin, QtWidgets.QComboBox):
     def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        QtWidgets.QComboBox.__init__(self, parent)
-        ParamMixin.__init__(self, param)
+        """
+        Constructor for QComboBox + ParamMixin
+        For construct combo uses param.field.desc['values']
+        :param parent: parent widget
+        :param param: param model for associate
+        """
+        super(ComboSelectField, self).__init__(parent=parent, param=param)
         for key, value in param.field.desc['values'].items():
             self.addItem(key, value)
+        index = self.findData(param.value)
+        if index >= 0:
+            self.setCurrentIndex(index)
 
     def get_value(self):
+        """
+        Overrides from ParamMixin
+        :return: value of this field
+        """
         return self.currentData()
 
 
-class NciSelectField(ParamMixin, QtWidgets.QComboBox):
+class NciSelectField(QtWidgets.QComboBox, ParamMixin):
+    """
+    Input field for nci combo values
+    """
+
     def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        QtWidgets.QComboBox.__init__(self, parent)
-        ParamMixin.__init__(self, param)
+        """
+        Constructor for QComboBox + ParamMixin
+        For construct combo uses param.field.desc['table']
+        :param parent: parent widget
+        :param param: param model for associate
+        """
+        super(NciSelectField, self).__init__(parent=parent, param=param)
         self.table_view = NciTableView(self)
         self.table_model = NciTableModel(Globals.nci[param.field.desc['table']], 20)
         self.setView(self.table_view)
@@ -115,25 +152,34 @@ class NciSelectField(ParamMixin, QtWidgets.QComboBox):
         self.setModelColumn(1)
         self.setMinimumWidth(400)
         self.setEditable(True)
-        self.lineEdit().textEdited.connect(self.text_changed)
+        self.lineEdit().textEdited.connect(self._text_changed)
         self.setMaxCount(20)
+        self.lineEdit().setClearButtonEnabled(True)
+        # Set current value
+        self.setCurrentText(param.value)
+        self._text_changed(param.value)
 
-    def text_changed(self, new_text):
+    def _text_changed(self, new_text):
+        # TODO Заполнить значение в поле из values если осталось только одно
         self.table_model.setFilter(new_text)
         self.setModel(self.table_model)
+        if self.model().rowCount() == 1:
+            self.lineEdit().setStyleSheet("color: black;")
+            self.setCurrentIndex(0)
+        elif self.model().rowCount() == 0:
+            self.lineEdit().setStyleSheet("color: red;")
+        else:
+            self.lineEdit().setStyleSheet("color: black;")
 
     def get_value(self):
+        """
+        Overrides from ParamMixin
+        :return: value of this field
+        """
         index = self.model().index(self.currentIndex(), 0)
         data = self.model().data(index).value()
+        print(self.currentText())
         return data if data is not None else self.currentText()
-
-
-class RoadSelectField(QtWidgets.QComboBox, ParamMixin):
-    def __init__(self, parent: QtWidgets.QWidget, param: Param):
-        super().__init__(parent=parent, param=param)
-
-    def get_value(self):
-        return self.date().toPyDate()
 
 
 class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
@@ -148,7 +194,11 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
         self.setupUi(self)
         self.accepted.connect(self.process_request)
 
-    def setupUi(self, MainWindow):
+    def setupUi(self, InputDialog):
+        """
+        :param InputDialog: this class
+        :return:
+        """
         super().setupUi(self)
         for param in self._query.params:
             if param.type not in ['CURSOR', 'TEXT']:
@@ -156,35 +206,19 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
                 if param.field is not None:
                     if param.field.type == 'LINE':
                         field = StringInputField(self, param=param)
-                        field.setText(param.value)
                     elif param.field.type == 'NUMBER':
                         field = NumberInputField(self, param=param)
-                        field.setValue(int(param.value))
                     elif param.field.type == 'DATE':
                         field = DateInputField(self, param=param)
-                        if param.value.startswith('func='):
-                            # TODO Здесь надо придумать что-то другое - небезопасно
-                            date = eval(param.value[5:])
-                            field.setDate(date)
-                        else:
-                            field.setDate(QDate.fromString(param.value))
                     elif param.field.type == 'COMBOBOX':
                         if 'values' in param.field.desc.keys():
                             field = ComboSelectField(self, param=param)
-                            index = field.findData(param.value)
-                            if index >= 0:
-                                field.setCurrentIndex(index)
                         elif 'table' in param.field.desc.keys():
                             field = NciSelectField(self, param=param)
-                            field.setCurrentText(param.value)
-                            field.text_changed(param.value)
-
                     else:
                         field = StringInputField(self, param=param)
-                        field.setText(param.value)
                 else:
                     field = StringInputField(self, param=param)
-                    field.setText(param.value)
                 # Append field to form
                 self._items.append(field)
                 self.fieldsFormLayout.addRow(param.title, field)
@@ -194,7 +228,11 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
                 elif param.type == 'TEXT':
                     self._items.append(ParamMixin(param))
 
-    def get_params(self):
+    def get_params(self) -> dict:
+        """
+        Construct param->value dictionary
+        :return: param->value dictionary
+        """
         params = dict()
         for item in self._items:
             if isinstance(item, ParamMixin):
@@ -202,4 +240,8 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
         return params
 
     def process_request(self) -> None:
+        """
+        Send request from this dialog
+        :return: None
+        """
         Globals.session.send_query(self._query, self.get_params())

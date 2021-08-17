@@ -88,7 +88,7 @@ class NciCompleter(QCompleter):
         if isinstance(data, str):
             return data
         else:
-            return data.value()
+            return data.field_value()
 
 
 class NciTableView(QTableView):
