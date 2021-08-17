@@ -57,7 +57,7 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         :param name: name associated with table
         :return:
         """
-        err, message = Globals.session.get(f'{Globals.NCI_API}/{name}')
+        err, message = Globals.session.get(f'{Globals.session.NCI_API}/{name}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_message = json.loads(message)
             Globals.nci[name] = pd.DataFrame(data=json_message['rows'],

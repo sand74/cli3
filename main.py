@@ -1,7 +1,7 @@
-from PyQt5 import QtNetwork
-from PyQt5.QtWidgets import *
 import sys
-from login import LoginDialog
+
+from PyQt5.QtWidgets import *
+
 from main_window import MainWindow
 
 

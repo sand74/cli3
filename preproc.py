@@ -1,5 +1,4 @@
 import os
-import sys
 import subprocess
 
 for root, subdirs, files in os.walk('ui', ):

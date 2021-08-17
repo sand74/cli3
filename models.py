@@ -1,8 +1,6 @@
 # from PyQt5 import Qt
 
 import qtawesome as qta
-from PyQt5 import QtCore
-from PyQt5.QtCore import QAbstractTableModel, Qt
 from PyQt5.QtWidgets import QTreeWidgetItem
 
 '''
@@ -14,7 +12,6 @@ class Folder(object):
     """
     Модель папки
     """
-
     def __init__(self, folder):
         super().__init__()
         self._name = folder['name']
@@ -46,7 +43,6 @@ class InputField(object):
     """
     Модель поля ввода
     """
-
     def __init__(self, field):
         super().__init__()
         self._type = field['type']
@@ -99,7 +95,6 @@ class Param(object):
 
     def __str__(self):
         return f'Parameter {self._name} of type {self.type} = {self._value}'
-
 
 
 class Query(object):
@@ -168,8 +163,6 @@ class Query(object):
         return request
 
 
-
-
 class QueryTreeItem(QTreeWidgetItem):
     """
     модель запрося для отображения в дереве
@@ -183,6 +176,3 @@ class QueryTreeItem(QTreeWidgetItem):
     @property
     def query(self):
         return self._query
-
-
-

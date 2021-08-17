@@ -1,17 +1,12 @@
-import typing
-
 from PyQt5 import QtCore
 from PyQt5.QtCore import QAbstractTableModel, Qt, pyqtSignal, QModelIndex, pyqtSlot
 from PyQt5.QtWidgets import QTableView, QWidget, QTableWidget, QHeaderView, QCompleter
-
-from globals import Globals
 
 
 class NciTableModel(QAbstractTableModel):
     """
     Модель таблицы для представления датафрейма nci
     """
-
     def __init__(self, dataframe, max_rows=None):
         super().__init__()
         self._source = dataframe
@@ -49,20 +44,12 @@ class NciTableModel(QAbstractTableModel):
                               self._source[columns[0]].str.contains(str(value)) | self._source[columns[1]].str.contains(
                                   str(value))].iloc[:self.max_rows, :]
 
-    # def match(self, start: QModelIndex, role: int, value: typing.Any, hits: int = ...,
-    #           flags: typing.Union[Qt.MatchFlags, Qt.MatchFlag] = ...) -> typing.List[QModelIndex]:
-    #     if role not in [Qt.DisplayRole, Qt.EditRole]:
-    #         return []
-    #     df = self._dataframe.iloc[start.row():, :]
-    #     if flags == Qt.MatchContains:
-    #         valid_indices = df[df[df.columns[start.column()]].str.contains(str(value))].index
-    #         result = [self.index(idx, start.column()) for idx in valid_indices]
-    #         return result
-    #     else:
-    #         return super().match(start, role, value, hits, flags)
-
 
 class NciCompleter(QCompleter):
+    """
+    Autocompleter for nci fields
+    TODO Не работает
+    """
     activatedSignal = pyqtSignal(object)
 
     def __init__(self, parent=None):
@@ -92,6 +79,10 @@ class NciCompleter(QCompleter):
 
 
 class NciTableView(QTableView):
+    """
+    TableView for nci tables
+    """
+
     def __init__(self, parent: QWidget = None):
         super().__init__(parent)
         self.setSelectionBehavior(QTableWidget.SelectRows)
