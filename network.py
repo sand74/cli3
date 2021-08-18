@@ -59,6 +59,7 @@ class Session(QObject):
 
     QUERY_API = '/api/docs/query'
     TREE_API = '/api/docs/tree'
+    STYLE_API = '/api/docs/styles'
     NCI_API = '/api/nci'
     REQUEST_URL = '/api/docs/request'
     LOGIN_URL = '/api/auth/signin'

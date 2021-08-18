@@ -43,8 +43,25 @@ class Cli3TableModel(QAbstractTableModel):
             elif type == 'BOOL':
                 self._source[name] = self._source[name].apply(lambda x: str(x).upper() == 'TRUE').astype('bool')
 
-        self._visable_columns = [column['name'] for column in columns if not column['name'].startswith('STYLE')]
+        self._visable_columns = [column['name'] for column in columns if
+                                 'title' in column.keys() and column['visable'] == True]
         self._dataframe = self._source.loc[:, self._visable_columns]
+
+    def _get_source_column(self, column):
+        """
+        Get column index in source dataframe
+        :param column:
+        :return:
+        """
+        return self._source.columns.get_loc(self._dataframe.columns[column])
+
+    def _get_source_row(self, row):
+        """
+        Get row index in source dataframe
+        :param column:
+        :return:
+        """
+        return self._dataframe.index[row]
 
     def get_source_index(self, index: QModelIndex) -> QModelIndex:
         """
@@ -54,9 +71,7 @@ class Cli3TableModel(QAbstractTableModel):
         """
         if index.row() >= 0 and index.row() < len(self._dataframe.values):
             if index.column() >= 0 and index.column() < len(self._dataframe.columns):
-                row = self._dataframe.index[index.row()]
-                column = self._source.columns.get_loc(self._dataframe.columns[index.column()])
-                return self.index(row=row, column=column)
+                return self.index(self._get_source_row(), self._get_source_column())
         return QModelIndex()
 
     @property
@@ -134,13 +149,15 @@ class Cli3TableModel(QAbstractTableModel):
             elif role == Qt.CheckStateRole:
                 return self._get_check_value(index.row(), index.column())
             elif role == Qt.TextColorRole:
-                pass
-                # if index.column() == 0:
-                #     return QtGui.QColor(255,0,0)
+                style = self._get_cell_style(index.row(), index.column())
+                if style is not None:
+                    text_color = self._hex2rgb(style['text_color'])
+                    return QtGui.QColor(text_color[0], text_color[1], text_color[2])
             elif role == Qt.BackgroundColorRole:
-                pass
-                # if index.column() == 0:
-                #     return QtGui.QColor(0, 0, 255)
+                style = self._get_cell_style(index.row(), index.column())
+                if style is not None:
+                    text_color = self._hex2rgb(style['background_color'])
+                    return QtGui.QColor(text_color[0], text_color[1], text_color[2])
         return QtCore.QVariant()
 
     def itemData(self, index: QModelIndex):
@@ -148,6 +165,27 @@ class Cli3TableModel(QAbstractTableModel):
             if index.row() >= 0 and index.row() < len(self._dataframe.values):
                 if index.column() >= 0 and index.column() < len(self._dataframe.columns):
                     return self._dataframe.iloc[index.row(), index.column()]
+        return None
+
+    def _hex2rgb(self, hex_color):
+        color = hex_color[-6:]
+        return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+
+    def _get_cell_style(self, row: int, column: int):
+        """
+        Get cell style from hiden styeles column
+        :param row:
+        :param column:
+        :return:
+        """
+        style = None
+        if 'STYLE' in self._source.columns:
+            style = self._source.loc[row, 'STYLE']
+        column_name = self._dataframe.columns[column]
+        if f'STYLE_{column_name}' in self._source.columns:
+            style = self._source.loc[row, f'STYLE_{column_name}']
+        if style is not None and style in Globals.styles.keys():
+            return Globals.styles[style]
         return None
 
     def _get_cell_value(self, row: int, column: int):
@@ -159,27 +197,47 @@ class Cli3TableModel(QAbstractTableModel):
         """
         if self._dataframe.iloc[row, column] == None:
             return None
-        if self._columns[column].get('type', 'STRING') == 'DATETIME':
+        src_column = self._get_source_column(column)
+        if self._columns[src_column].get('type', 'STRING') == 'DATETIME':
             datetime = QDateTime(self._dataframe.iloc[row, column])
             return QtCore.QVariant(datetime)
-        elif self._columns[column].get('type', 'STRING') == 'DATE':
+        elif self._columns[src_column].get('type', 'STRING') == 'DATE':
             date = QDate(self._dataframe.iloc[row, column])
             return QtCore.QVariant(date)
-        elif self._columns[column].get('type', 'STRING') == 'TIME':
+        elif self._columns[src_column].get('type', 'STRING') == 'TIME':
             time = QDate(self._dataframe.iloc[row, column])
             return QtCore.QVariant(time)
-        elif self._columns[column].get('type', 'STRING') == 'NUMBER':
+        elif self._columns[src_column].get('type', 'STRING') == 'NUMBER':
             number = float(self._dataframe.iloc[row, column])
             return QtCore.QVariant(number)
-        elif self._columns[column].get('type', 'STRING') == 'BOOL':
+        elif self._columns[src_column].get('type', 'STRING') == 'BOOL':
             boolean = bool(self._dataframe.iloc[row, column])
             return QtCore.QVariant(boolean)
         else:
             value = str(self._dataframe.iloc[row, column])
+            nci = self._columns[src_column].get('nci', None)
+            if nci is not None:
+                value = self._get_value_from_nci(value, nci.get('table', None), nci.get('column', '').upper())
             return QtCore.QVariant(value)
 
+    def _get_value_from_nci(self, key, nci_table, nci_column):
+        """
+        Translate value in nci column
+        :param key: value to translate
+        :param nci_table:
+        :param nci_column:
+        :return:
+        """
+        nci_df = Globals.nci.get(nci_table, None)
+        if nci_df is not None:
+            if key in nci_df.index.values:
+                if nci_column in nci_df.columns:
+                    return nci_df.loc[key, nci_column]
+        return key
+
     def _get_check_value(self, row: int, column: int):
-        if self._columns[column].get('type', 'STRING') == 'BOOL':
+        src_column = self._get_source_column(column)
+        if self._columns[src_column].get('type', 'STRING') == 'BOOL':
             boolean = bool(self._dataframe.iloc[row, column])
             return Qt.Checked if boolean else Qt.Unchecked
         else:
@@ -194,6 +252,9 @@ class Cli3TableModel(QAbstractTableModel):
             elif role == QtCore.Qt.DecorationRole:
                 if self.hasFilter(column):
                     return qta.icon('fa.filter', color='grey')
+        elif orientation == QtCore.Qt.Vertical:
+            if role == QtCore.Qt.DisplayRole:
+                return QtCore.QVariant(str(self._dataframe.index[column]))
         return QtCore.QVariant()
 
     # Sort section
@@ -205,9 +266,13 @@ class Cli3TableModel(QAbstractTableModel):
         :return:
         """
         col = self._dataframe.columns[column]
-        self._dataframe.sort_values(by=[col], ascending=True if order == 1 else False, inplace=True, axis=0)
+        self._dataframe.sort_values(by=[col], ascending=True if order == 0 else False, inplace=True, axis=0)
         self.layoutChanged.emit()
         super().sort(column, order)
+
+    # Restore original dataframe order
+    def unsort(self, column):
+        self._dataframe.sort_index(inplace=True)
 
 
 class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
@@ -240,7 +305,6 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         index = self.tableView.indexAt(point)
         if not index.isValid():
             return
-        print(index.row(), index.column(), '=>', self.tableView.model().get_source_index(index))
         menu = QtWidgets.QMenu()
         if self._request.query.has_subqueries():
             for subquery in self._request.query.subqueries:
@@ -258,17 +322,15 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         :param query: Query to send
         :return:
         """
-        print('Query', query)
         err, message = Globals.session.get(f'{Globals.session.QUERY_API}?id={query.id}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_query = json.loads(message)
             query = Query(json_query)
             idx = self.tableView.model().get_source_index(index)
             row = self.tableView.model().source.loc[idx.row(), :]
-            print(row.index)
             for param in query.in_params:
-                if param.name in row.index:
-                    param.value = row[param.name]
+                if param.name.upper() in row.index:
+                    param.value = row[param.name.upper()]
             Globals.session.send_query(query)
 
     def setModel(self, model: QAbstractTableModel):
@@ -279,13 +341,34 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
 
     def setupUi(self, MainWindow):
         super().setupUi(self)
-        self.tableView.setSortingEnabled(True)
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tableView.verticalHeader().setVisible(True)
+        self.tableView.setSortingEnabled(True)
+        self.tableView.horizontalHeader().setSortIndicatorShown(False)
+        self.tableView.horizontalHeader().sectionClicked.connect(self._change_sort_order)
         self.filterButton.setIcon(qta.icon('fa5s.filter', color='grey'))
         self.refreshButton.setIcon(qta.icon('fa5s.sync', color='grey'))
         # init menu actions
         self.filterButton.clicked.connect(self._filter_model)
         self.refreshButton.clicked.connect(self._refresh_model)
+
+    _last_sorted_column = -1
+
+    def _change_sort_order(self, column):
+        """
+        Dance with buben to restore original sort state
+        :param column:
+        :return:
+        """
+        if self.tableView.horizontalHeader().sortIndicatorOrder() == Qt.AscendingOrder and \
+                column == self._last_sorted_column:
+            self.tableView.horizontalHeader().setSortIndicator(column, Qt.DescendingOrder)
+            self.tableView.horizontalHeader().setSortIndicatorShown(False)
+            self.tableView.model().unsort(column)
+            self._last_sorted_column = -1
+        else:
+            self.tableView.horizontalHeader().setSortIndicatorShown(True)
+            self._last_sorted_column = column
 
     def _selection_changed(self, new_selection, old_selection):
         self._update_filter_button()

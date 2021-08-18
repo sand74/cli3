@@ -13,3 +13,4 @@ class Globals():
         'stations': None,
         'roads': None,
     }
+    styles = {}

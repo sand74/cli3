@@ -45,6 +45,7 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             self.labelStatus.setStyleSheet("color: green")
             self.labelStatus.setText('Success')
             self._load_nci()
+            self._load_styles()
             self.loggedSignal.emit(0)
             self.accept()
         else:
@@ -61,8 +62,7 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         if err == QtNetwork.QNetworkReply.NoError:
             json_message = json.loads(message)
             Globals.nci[name] = pd.DataFrame(data=json_message['rows'],
-                                             columns=json_message['columns'],
-                                             index=json_message['index'])
+                                             columns=[column.upper() for column in json_message['columns']])
         else:
             raise NetworkException(err, message)
 
@@ -86,4 +86,20 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             else:
                 self._load_nci_table(key)
                 Globals.nci[key].to_csv(data_file, index=False)
+            # Prevent convert index to int
+            Globals.nci[key].set_index(Globals.nci[key].columns[0], drop=False, inplace=True)
             self.loadProgressBar.setValue(++step)
+
+    def _load_styles(self) -> None:
+        """
+        Loade styles from server
+        :return:
+        """
+        progress_message = f"Loading styles ..."
+        self.loadProgressBar.setFormat(progress_message)
+        self.labelStatus.setText(progress_message)
+        err, message = Globals.session.get(f'{Globals.session.STYLE_API}')
+        if err == QtNetwork.QNetworkReply.NoError:
+            Globals.styles = json.loads(message)
+        else:
+            raise NetworkException(err, message)
