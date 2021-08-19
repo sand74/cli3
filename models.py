@@ -24,19 +24,6 @@ class Folder(object):
         return f'Folder {self._name}'
 
 
-class FolderTreeItem(QTreeWidgetItem):
-    """
-    модель папки для отображения в дереве
-    """
-    def __init__(self, folder: Folder, widget: QTreeWidgetItem = None):
-        super(FolderTreeItem, self).__init__(widget)
-        self._folder = folder
-        self.setText(0, folder.name)
-        self.setIcon(0, qta.icon('fa5s.folder', color='orange'))
-
-    @property
-    def folder(self):
-        return self._folder
 
 
 class InputField(object):
@@ -46,15 +33,25 @@ class InputField(object):
     def __init__(self, field):
         super().__init__()
         self._type = field['type']
-        self._desc = field['desc']
+        self._nci = field.get('nci', None)
+        self._nci_column = field.get('nci_column', None)
+        self._values = field.get('values', None)
 
     @property
     def type(self):
         return self._type
 
     @property
-    def desc(self):
-        return self._desc
+    def nci(self):
+        return self._nci
+
+    @property
+    def nci_column(self):
+        return self._nci_column
+
+    @property
+    def values(self):
+        return self._values
 
 
 class Param(object):
@@ -162,17 +159,12 @@ class Query(object):
                 request += f'&{param.name}={param.value}'
         return request
 
-
-class QueryTreeItem(QTreeWidgetItem):
-    """
-    модель запрося для отображения в дереве
-    """
-    def __init__(self, query):
-        super().__init__()
-        self._query = query
-        self.setText(0, query.name)
-        self.setIcon(0, qta.icon('fa5s.share-square', color='blue'))
-
-    @property
-    def query(self):
-        return self._query
+    def get_full_name(self):
+        full_name = self.name
+        if self.has_in_params():
+            full_name += ' ['
+        for param in self.in_params:
+            full_name += f'{param.title}={param.value}, '
+        if self.has_in_params():
+            full_name = full_name[:-2] + ']'
+        return full_name

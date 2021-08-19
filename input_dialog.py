@@ -4,7 +4,7 @@ from typing import Any
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QDate
 
-from globals import Globals
+from app import Cli3App
 from models import Query, Param
 from nci_table import NciTableView, NciTableModel
 from ui.input_dialog import Ui_InputDialog
@@ -118,11 +118,13 @@ class ComboSelectField(QtWidgets.QComboBox, ParamMixin):
         :param param: param model for associate
         """
         super(ComboSelectField, self).__init__(parent=parent, param=param)
-        for key, value in param.field.desc['values'].items():
-            self.addItem(key, value)
-        index = self.findData(param.value)
-        if index >= 0:
-            self.setCurrentIndex(index)
+        if param.field.values is not None:
+            for value in param.field.values.split('\n'):
+                key, value = value.split('=', maxsplit=1)
+                self.addItem(key, value)
+            index = self.findData(param.value)
+            if index >= 0:
+                self.setCurrentIndex(index)
 
     def get_value(self):
         """
@@ -146,7 +148,7 @@ class NciSelectField(QtWidgets.QComboBox, ParamMixin):
         """
         super(NciSelectField, self).__init__(parent=parent, param=param)
         self.table_view = NciTableView(self)
-        self.table_model = NciTableModel(Globals.nci[param.field.desc['table']], 20)
+        self.table_model = NciTableModel(Cli3App.instance().nci[param.field.nci['name']], 20)
         self.setView(self.table_view)
         self.setModel(self.table_model)
         self.setModelColumn(1)
@@ -192,6 +194,7 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
         self._query = query
         self._items = []
         self.setupUi(self)
+        self.setWindowTitle(query.name)
         self.accepted.connect(self.process_request)
 
     def setupUi(self, InputDialog):
@@ -211,10 +214,9 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
                     elif param.field.type == 'DATE':
                         field = DateInputField(self, param=param)
                     elif param.field.type == 'COMBOBOX':
-                        if 'values' in param.field.desc.keys():
-                            field = ComboSelectField(self, param=param)
-                        elif 'table' in param.field.desc.keys():
-                            field = NciSelectField(self, param=param)
+                        field = ComboSelectField(self, param=param)
+                    elif param.field.type == 'COMBONCI':
+                        field = NciSelectField(self, param=param)
                     else:
                         field = StringInputField(self, param=param)
                 else:
@@ -244,4 +246,4 @@ class InputDialog(QtWidgets.QDialog, Ui_InputDialog):
         Send request from this dialog
         :return: None
         """
-        Globals.session.send_query(self._query, self.get_params())
+        Cli3App.instance().session.send_query(self._query, self.get_params())

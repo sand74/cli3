@@ -1,18 +1,20 @@
 import datetime
 import json
 import sys
+from functools import partial
 
 import qtawesome as qta
 from PyQt5 import QtWidgets, QtNetwork, QtGui
-from PyQt5.QtCore import QSettings, QCoreApplication
-from PyQt5.QtWidgets import QApplication, QToolButton, QTableWidgetItem, QTableWidget, QHeaderView
+from PyQt5.QtCore import QSettings, QCoreApplication, pyqtSignal
+from PyQt5.QtWidgets import QApplication, QToolButton, QTableWidgetItem, QTableWidget, QHeaderView, QMdiArea, \
+    QFileDialog, QTreeWidgetItem
 
-from globals import Globals
+from app import Cli3App
 from input_dialog import InputDialog
 from login import LoginDialog
-from models import Query, Folder, QueryTreeItem, FolderTreeItem
+from models import Query, Folder
 from network import Request
-from table import TableWindow
+from table import TableWindow, Cli3WindowMixin
 from ui.main_window import Ui_MainWindow
 
 
@@ -26,10 +28,43 @@ class RequestTableColumns:
     INFO = (6, 'info')
 
 
+class FolderTreeItem(QTreeWidgetItem):
+    """
+    модель папки для отображения в дереве
+    """
+
+    def __init__(self, folder: Folder, widget: QTreeWidgetItem = None):
+        super(FolderTreeItem, self).__init__(widget)
+        self._folder = folder
+        self.setText(0, folder.name)
+        self.setIcon(0, Cli3App.instance().icons.get('folder'))
+
+    @property
+    def folder(self):
+        return self._folder
+
+
+class QueryTreeItem(QTreeWidgetItem):
+    """
+    модель запрося для отображения в дереве
+    """
+
+    def __init__(self, query):
+        super().__init__()
+        self._query = query
+        self.setText(0, query.name)
+        self.setIcon(0, Cli3App.instance().icons.get('file'))
+
+    @property
+    def query(self):
+        return self._query
+
+
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     """
     Главное окно приложения
     """
+    updateActionsSignal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -37,21 +72,109 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not self.login_dialog.exec():
             sys.exit(0)
         self.setupUi(self)
+        self.mdiArea.subWindowActivated.connect(self._update_actions)
+        self.tabifiedDockWidgetActivated.connect(self._update_actions)
+        Cli3App.instance().updateMainWindiwSignal.connect(self._update_actions)
+
+    def showEvent(self, a0: QtGui.QShowEvent) -> None:
+        super().showEvent(a0)
+        self._update_actions()
 
     def setupUi(self, MainWindow):
         super().setupUi(self)
-        # init widgets
         self.read_settings()
+        # init actions
+        self.actionExit.triggered.connect(lambda: QApplication.exit())
+        self.actionOpen.setIcon(Cli3App.instance().icons.get('open'))
+        self.actionOpen.triggered.connect(self._open_answer)
+        self.actionSave.setIcon(Cli3App.instance().icons.get('save'))
+        self.actionSave.triggered.connect(self._save_answer)
+        self.actionFilter.setIcon(Cli3App.instance().icons.get('filter'))
+        self.actionFilter.triggered.connect(self._save_answer)
+        self.actionRefresh.setIcon(Cli3App.instance().icons.get('refresh'))
+        self.actionRefresh.triggered.connect(self._save_answer)
+        self.actionNavigator.triggered.connect(self._invert_nav_visable)
+        self.actionLog.triggered.connect(self._invert_log_visable)
+        # Menu
+        self.menuWindow.aboutToShow.connect(self._update_window_list)
+        # Toolbar
+        self._fill_toolbar()
+        # init widgets
         self.setup_nav_pane()
         self.setup_log_pane()
-        # init actions
-        # init menu actions
-        # TODO add File View Window Help
-        self.actionExit.triggered.connect(lambda: QApplication.exit())
         # init query actions
-        Globals.session.answerReceivedSignal.connect(self.answer_received)
-        Globals.session.requestSentSignal.connect(self.insert_request)
-        Globals.session.requestDoneSignal.connect(self.update_request)
+        Cli3App.instance().session.answerReceivedSignal.connect(self.answer_received)
+        Cli3App.instance().session.requestSentSignal.connect(self.insert_request)
+        Cli3App.instance().session.requestDoneSignal.connect(self.update_request)
+
+    def _update_window_list(self):
+        self.menuWindow.clear()
+        self.menuWindow.addAction(self.actionTile)
+        self.actionTile.triggered.connect(partial(self.mdiArea.tileSubWindows))
+        self.menuWindow.addAction(self.actionCascade)
+        self.actionCascade.triggered.connect(partial(self.mdiArea.cascadeSubWindows))
+        self.menuWindow.addSeparator()
+        windows = self.mdiArea.subWindowList(QMdiArea.CreationOrder)
+        for window in windows:
+            action = QtWidgets.QAction(self)
+            action.setCheckable(True)
+            action.setChecked(window == self.mdiArea.activeSubWindow())
+            self.menuWindow.addAction(action)
+            action.setText(window.windowTitle())
+            action.triggered.connect(partial(self.mdiArea.setActiveSubWindow, window))
+
+    def _update_actions(self):
+        self.actionNavigator.setChecked(self.navDockWidget.isVisible())
+        self.actionLog.setChecked(self.logDocWidget.isVisible())
+        active_sub_window = self.mdiArea.activeSubWindow()
+        self.actionSave.setEnabled(active_sub_window != None)
+        self.actionFilter.setEnabled(False)
+        self.actionRefresh.setEnabled(False)
+        if active_sub_window != None:
+            if isinstance(active_sub_window.widget(), Cli3WindowMixin):
+                self.actionRefresh.setEnabled(active_sub_window.widget().can_refresh())
+                has_filter = active_sub_window.widget().has_filter()
+                if has_filter is not None:
+                    self.actionFilter.setEnabled(True)
+                    self.actionFilter.setChecked(has_filter)
+                else:
+                    self.actionFilter.setEnabled(False)
+                    self.actionFilter.setChecked(False)
+
+    def _fill_toolbar(self):
+        self.toolBar.addAction(self.actionOpen)
+        self.toolBar.addAction(self.actionSave)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.actionFilter)
+        self.toolBar.addAction(self.actionRefresh)
+
+    def _save_answer(self):
+        window = self.mdiArea.activeSubWindow()
+        if window is not None and isinstance(window.widget(), Cli3WindowMixin):
+            filename = QFileDialog.getSaveFileName(self, 'Save to')[0]
+            if filename is not None and len(filename) > 0:
+                window.widget().save(filename)
+
+    def _open_answer(self):
+        filename = QFileDialog.getOpenFileName(self, 'Open')[0]
+        if filename is not None and len(filename) > 0:
+            window = TableWindow().load(filename)
+            if window is not None:
+                self.mdiArea.addSubWindow(window).show()
+
+    def _invert_nav_visable(self):
+        """
+        Show/Hide navigator
+        :return:
+        """
+        self.navDockWidget.setVisible(not self.navDockWidget.isVisible())
+
+    def _invert_log_visable(self):
+        """
+        Show/Hide log
+        :return:
+        """
+        self.logDocWidget.setVisible(not self.logDocWidget.isVisible())
 
     def setup_nav_pane(self) -> None:
         """
@@ -59,7 +182,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         TODO Перенести в отдельный класс все что связано с NavPane
         :return:
         """
-        self.refreshFoldersButton.setIcon(qta.icon('fa5s.sync', color='green'))
+        self.refreshFoldersButton.setIcon(Cli3App.instance().icons.get('sync'))
         self.refreshFoldersButton.clicked.connect(self._fill_tree)
         self._fill_tree()
         self.foldersTreeWidget.expandAll()
@@ -124,7 +247,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.requestTableWidget.insertRow(0)
         status_widget = qta.IconWidget()
-        spin_icon = qta.icon('fa5s.spinner', color='green', animation=qta.Spin(status_widget))
+        spin_icon = qta.icon('fa5s.spinner', color='blue', animation=qta.Spin(status_widget))
         status_widget.setIcon(spin_icon)
         self.requestTableWidget.setCellWidget(0, RequestTableColumns.STATUS[0], status_widget)
         self.requestTableWidget.setItem(0, RequestTableColumns.UUID[0],
@@ -156,11 +279,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                             QTableWidgetItem(str(request.error)))
             status_widget = self.requestTableWidget.cellWidget(idx, RequestTableColumns.STATUS[0])
             if request.error == 0:
-                status_widget.setIcon(qta.icon('fa5s.check', color='blue'))
+                status_widget.setIcon(Cli3App.instance().icons.get('success'))
                 self.requestTableWidget.setItem(idx, RequestTableColumns.INFO[0],
                                                 QTableWidgetItem(f'{len(request.answer)} bytes received'))
             else:
-                status_widget.setIcon(qta.icon('fa5s.skull-crossbones', color='red'))
+                status_widget.setIcon(Cli3App.instance().icons.get('error'))
                 self.requestTableWidget.setItem(idx, RequestTableColumns.INFO[0],
                                                 QTableWidgetItem(str(request.answer)))
             self.requestTableWidget.resizeColumnsToContents()
@@ -175,13 +298,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if request.error == 0:
             print('Answer', request.answer)
             if request.query.type == 'table':
-                window = TableWindow(request)
+                window = TableWindow()
+                window.set_request(request=request)
             else:
-                window = TableWindow(request)
-            self.mdiArea.addSubWindow(window)
-            window.show()
-
-        self.get_window_list()
+                window = TableWindow()
+                window.set_request(request=request)
+            self.mdiArea.addSubWindow(window).show()
 
     def _folders_tree_context_menu(self, point) -> None:
         """
@@ -197,7 +319,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if isinstance(item, QueryTreeItem):
             menu = QtWidgets.QMenu()
             action = menu.addAction("Query")
-            action.setIcon(qta.icon('fa5s.paper-plane', color='green'))
+            action.setIcon(Cli3App.instance().icons.get('send'))
             action.triggered.connect(lambda x: self._send_query(item.query))
             menu.addSeparator()
             menu.addAction("Cancel")
@@ -219,7 +341,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         :return: Query from server
         """
         print('Query', query)
-        err, message = Globals.session.get(f'{Globals.session.QUERY_API}?id={query.id}')
+        err, message = Cli3App.instance().session.get(f'{Cli3App.instance().session.QUERY_API}?id={query.id}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_query = json.loads(message)
             query = Query(json_query)
@@ -228,7 +350,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             input_dialog.setModal(True)
             input_dialog.show()
         else:
-            Globals.session.send_query(query)
+            Cli3App.instance().session.send_query(query)
         return query
 
     def _fill_tree(self) -> None:
@@ -239,7 +361,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.foldersTreeWidget.clear()
         #        Globals.session.getDoneSignal.connect(self._handle_fill)
-        err, message = Globals.session.get(f'{Globals.session.TREE_API}')
+        err, message = Cli3App.instance().session.get(f'{Cli3App.instance().session.TREE_API}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_tree = json.loads(message)
             for folder in json_tree['folders']:

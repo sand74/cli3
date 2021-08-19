@@ -1,13 +1,14 @@
 import json
+import pickle
 
 import pandas as pd
 import qtawesome as qta
 from PyQt5 import QtWidgets, QtCore, QtNetwork, QtGui
 from PyQt5.QtCore import QAbstractTableModel, Qt, QDateTime, QDate, QModelIndex, \
-    QItemSelectionModel
-from PyQt5.QtWidgets import QAbstractItemView
+    QItemSelectionModel, QPoint
+from PyQt5.QtWidgets import QAbstractItemView, QWhatsThis
 
-from globals import Globals
+from app import Cli3App
 from models import Query
 from network import Request
 from ui.table import Ui_TableWindow
@@ -71,7 +72,7 @@ class Cli3TableModel(QAbstractTableModel):
         """
         if index.row() >= 0 and index.row() < len(self._dataframe.values):
             if index.column() >= 0 and index.column() < len(self._dataframe.columns):
-                return self.index(self._get_source_row(), self._get_source_column())
+                return self.index(self._get_source_row(index.row()), self._get_source_column(index.column()))
         return QModelIndex()
 
     @property
@@ -148,16 +149,23 @@ class Cli3TableModel(QAbstractTableModel):
                 return self._get_cell_value(index.row(), index.column())
             elif role == Qt.CheckStateRole:
                 return self._get_check_value(index.row(), index.column())
-            elif role == Qt.TextColorRole:
+            elif role == Qt.ForegroundRole:
                 style = self._get_cell_style(index.row(), index.column())
                 if style is not None:
                     text_color = self._hex2rgb(style['text_color'])
-                    return QtGui.QColor(text_color[0], text_color[1], text_color[2])
-            elif role == Qt.BackgroundColorRole:
+                    color = QtGui.QColor(text_color[0], text_color[1], text_color[2])
+                    return QtGui.QBrush(color)
+            elif role == Qt.BackgroundRole:
                 style = self._get_cell_style(index.row(), index.column())
                 if style is not None:
                     text_color = self._hex2rgb(style['background_color'])
-                    return QtGui.QColor(text_color[0], text_color[1], text_color[2])
+                    color = QtGui.QColor(text_color[0], text_color[1], text_color[2])
+                    color.setAlphaF(0.5)
+                    return QtGui.QBrush(color)
+            elif role == Qt.ToolTipRole:
+                return f'{self._get_cell_value(index.row(), index.column()).value()}'
+            elif role == Qt.WhatsThisRole:
+                return f'{self._get_cell_value(index.row(), index.column()).value()}'
         return QtCore.QVariant()
 
     def itemData(self, index: QModelIndex):
@@ -184,8 +192,8 @@ class Cli3TableModel(QAbstractTableModel):
         column_name = self._dataframe.columns[column]
         if f'STYLE_{column_name}' in self._source.columns:
             style = self._source.loc[row, f'STYLE_{column_name}']
-        if style is not None and style in Globals.styles.keys():
-            return Globals.styles[style]
+        if style is not None and style in Cli3App.instance().styles.keys():
+            return Cli3App.instance().styles[style]
         return None
 
     def _get_cell_value(self, row: int, column: int):
@@ -216,8 +224,9 @@ class Cli3TableModel(QAbstractTableModel):
         else:
             value = str(self._dataframe.iloc[row, column])
             nci = self._columns[src_column].get('nci', None)
-            if nci is not None:
-                value = self._get_value_from_nci(value, nci.get('table', None), nci.get('column', '').upper())
+            nci_column = self._columns[src_column].get('nci_column', None)
+            if nci is not None and nci_column is not None:
+                value = self._get_value_from_nci(value, nci.get('name', None), nci_column.upper())
             return QtCore.QVariant(value)
 
     def _get_value_from_nci(self, key, nci_table, nci_column):
@@ -228,7 +237,7 @@ class Cli3TableModel(QAbstractTableModel):
         :param nci_column:
         :return:
         """
-        nci_df = Globals.nci.get(nci_table, None)
+        nci_df = Cli3App.instance().nci.get(nci_table, None)
         if nci_df is not None:
             if key in nci_df.index.values:
                 if nci_column in nci_df.columns:
@@ -251,7 +260,7 @@ class Cli3TableModel(QAbstractTableModel):
                     return QtCore.QVariant(col.get('title', col['name']))
             elif role == QtCore.Qt.DecorationRole:
                 if self.hasFilter(column):
-                    return qta.icon('fa.filter', color='grey')
+                    return Cli3App.instance().icons.get('filter')
         elif orientation == QtCore.Qt.Vertical:
             if role == QtCore.Qt.DisplayRole:
                 return QtCore.QVariant(str(self._dataframe.index[column]))
@@ -275,18 +284,39 @@ class Cli3TableModel(QAbstractTableModel):
         self._dataframe.sort_index(inplace=True)
 
 
-class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
+class Cli3WindowMixin():
+    def save(self, filename):
+        pass
+
+    def load(self, filename):
+        pass
+
+    def has_filter(self):
+        return None
+
+    def can_refresh(self) -> bool:
+        return False
+
+
+class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
     """
     Класс окна одной таблицы
     """
 
-    def __init__(self, request: Request):
+    def __init__(self):
         """
         TableWindow creates from request object
         :param request:
         """
         super().__init__()
         self.setupUi(self)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.tableView.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tableView.customContextMenuRequested.connect(self._show_context_menu)
+        self.tableView.setSelectionBehavior(QAbstractItemView.SelectItems)
+
+    def set_request(self, request: Request):
+        self._request = request
         self._answer = json.loads(request.answer)
         for attribute, value in self._answer.items():
             if value['type'] == 'cursor':
@@ -295,11 +325,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
                 model = Cli3TableModel(data, columns)
                 self.setModel(model)
                 break
-        self.setWindowTitle(request.query.name)
-        self._request = request
-        self.tableView.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tableView.customContextMenuRequested.connect(self._show_context_menu)
-        self.tableView.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self.setWindowTitle(request.query.get_full_name())
 
     def _show_context_menu(self, point):
         index = self.tableView.indexAt(point)
@@ -309,7 +335,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         if self._request.query.has_subqueries():
             for subquery in self._request.query.subqueries:
                 action = menu.addAction(subquery.name)
-                action.setIcon(qta.icon('fa5s.paper-plane', color='green'))
+                action.setIcon(Cli3App.instance().icons.get('table'))
                 action.triggered.connect(lambda x: self._send_query(index, subquery))
             menu.addSeparator()
             menu.addAction("Cancel")
@@ -322,7 +348,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         :param query: Query to send
         :return:
         """
-        err, message = Globals.session.get(f'{Globals.session.QUERY_API}?id={query.id}')
+        err, message = Cli3App.instance().session.get(f'{Cli3App.instance().session.QUERY_API}?id={query.id}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_query = json.loads(message)
             query = Query(json_query)
@@ -331,7 +357,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
             for param in query.in_params:
                 if param.name.upper() in row.index:
                     param.value = row[param.name.upper()]
-            Globals.session.send_query(query)
+            Cli3App.instance().session.send_query(query)
 
     def setModel(self, model: QAbstractTableModel):
         self.tableView.setModel(model)
@@ -346,8 +372,9 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         self.tableView.setSortingEnabled(True)
         self.tableView.horizontalHeader().setSortIndicatorShown(False)
         self.tableView.horizontalHeader().sectionClicked.connect(self._change_sort_order)
-        self.filterButton.setIcon(qta.icon('fa5s.filter', color='grey'))
-        self.refreshButton.setIcon(qta.icon('fa5s.sync', color='grey'))
+
+        self.filterButton.setIcon(Cli3App.instance().icons.get('filter'))
+        self.refreshButton.setIcon(Cli3App.instance().icons.get('refresh'))
         # init menu actions
         self.filterButton.clicked.connect(self._filter_model)
         self.refreshButton.clicked.connect(self._refresh_model)
@@ -372,6 +399,16 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
 
     def _selection_changed(self, new_selection, old_selection):
         self._update_filter_button()
+        Cli3App.instance().updateMainWindiwSignal.emit()
+
+    def has_filter(self):
+        if self.tableView.selectionModel().hasSelection():
+            self.filterButton.setDisabled(False)
+            indexes = self.tableView.selectionModel().selection().indexes()
+            has_filter = self.tableView.model().hasFilter(indexes[0].column())
+            return has_filter
+        else:
+            return None
 
     def _update_filter_button(self) -> None:
         """
@@ -402,6 +439,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
             idx = self.tableView.model().index(0, indexes[0].column())
             self.tableView.selectionModel().select(idx, QItemSelectionModel.ClearAndSelect)
             self.tableView.resizeColumnToContents(indexes[0].column())
+        Cli3App.instance().updateMainWindiwSignal.emit()
 
     def _refresh_model(self):
         """
@@ -409,8 +447,8 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         :return:
         """
         self._request.getDoneSignal.connect(self._model_refreshed)
-        Globals.session.send_request(self._request)
-        Globals.session.requestSentSignal.emit(self._request)
+        Cli3App.instance().session.send_request(self._request)
+        Cli3App.instance().session.requestSentSignal.emit(self._request)
         self.refreshButton.setDisabled(True)
 
     def _model_refreshed(self, request: Request):
@@ -421,16 +459,18 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow):
         """
         self._request.getDoneSignal.disconnect(self._model_refreshed)
         self._request = request
-        Globals.session.requestDoneSignal.emit(self._request)
+        Cli3App.instance().session.requestDoneSignal.emit(self._request)
         print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
-            print('Answer', request.answer)
-            json_answer = json.loads(request.answer)
-            for attribute, value in json_answer.items():
-                if value['type'] == 'cursor':
-                    columns = value['columns']
-                    data = value['data']
-                    model = Cli3TableModel(data, columns)
-                    self.setModel(model=model)
-                    break
+            self.set_request(request=request)
         self.refreshButton.setDisabled(False)
+
+    def save(self, filename):
+        with open(filename, 'wb') as outp:
+            pickle.dump(self._request, outp, pickle.HIGHEST_PROTOCOL)
+
+    def load(self, filename):
+        with open(filename, 'rb') as inp:
+            request = pickle.load(inp)
+            self.set_request(request=request)
+            return self

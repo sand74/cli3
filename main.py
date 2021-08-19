@@ -1,15 +1,14 @@
 import sys
+import typing
 
 from PyQt5.QtWidgets import *
 
+from app import Cli3App
 from main_window import MainWindow
 
 
 def main():
-    app = QApplication(sys.argv)
-    app.setApplicationName('Cli3')
-    app.setOrganizationName('ICS')
-    app.setApplicationVersion('1.1.1')
+    app = Cli3App(sys.argv)
     mainWindow = MainWindow()
     mainWindow.show()
     sys.exit(app.exec_())
