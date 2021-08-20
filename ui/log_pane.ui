@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+    <class>logPane</class>
+    <widget class="QWidget" name="logPane">
+        <property name="geometry">
+            <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>780</width>
+                <height>212</height>
+            </rect>
+        </property>
+        <property name="windowTitle">
+            <string>Form</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout">
+            <property name="leftMargin">
+                <number>6</number>
+            </property>
+            <property name="topMargin">
+                <number>6</number>
+            </property>
+            <property name="rightMargin">
+                <number>6</number>
+            </property>
+            <property name="bottomMargin">
+                <number>6</number>
+            </property>
+            <item>
+                <widget class="QTableWidget" name="requestTableWidget">
+                    <property name="editTriggers">
+                        <set>QAbstractItemView::NoEditTriggers</set>
+                    </property>
+                    <property name="textElideMode">
+                        <enum>Qt::ElideNone</enum>
+                    </property>
+                    <column>
+                        <property name="text">
+                            <string>status</string>
+                        </property>
+                    </column>
+                    <column>
+                        <property name="text">
+                            <string>uuid</string>
+                        </property>
+                    </column>
+                    <column>
+                        <property name="text">
+                            <string>query</string>
+                        </property>
+                    </column>
+                    <column>
+                        <property name="text">
+                            <string>sent</string>
+                        </property>
+                    </column>
+                    <column>
+                        <property name="text">
+                            <string>done</string>
+                        </property>
+                    </column>
+                    <column>
+                        <property name="text">
+                            <string>code</string>
+                        </property>
+                    </column>
+                    <column>
+                        <property name="text">
+                            <string>info</string>
+                        </property>
+                    </column>
+                </widget>
+            </item>
+        </layout>
+    </widget>
+    <resources/>
+    <connections/>
+</ui>

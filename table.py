@@ -294,9 +294,14 @@ class Cli3WindowMixin():
     def has_filter(self):
         return None
 
-    def can_refresh(self) -> bool:
+    def set_filter(self):
+        pass
+
+    def is_locked(self) -> bool:
         return False
 
+    def refresh(self):
+        pass
 
 class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
     """
@@ -363,7 +368,6 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         self.tableView.setModel(model)
         self.tableView.resizeColumnsToContents()
         self.tableView.selectionModel().selectionChanged.connect(self._selection_changed)
-        self._update_filter_button()
 
     def setupUi(self, MainWindow):
         super().setupUi(self)
@@ -372,12 +376,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         self.tableView.setSortingEnabled(True)
         self.tableView.horizontalHeader().setSortIndicatorShown(False)
         self.tableView.horizontalHeader().sectionClicked.connect(self._change_sort_order)
-
-        self.filterButton.setIcon(Cli3App.instance().icons.get('filter'))
-        self.refreshButton.setIcon(Cli3App.instance().icons.get('refresh'))
         # init menu actions
-        self.filterButton.clicked.connect(self._filter_model)
-        self.refreshButton.clicked.connect(self._refresh_model)
 
     _last_sorted_column = -1
 
@@ -398,30 +397,18 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
             self._last_sorted_column = column
 
     def _selection_changed(self, new_selection, old_selection):
-        self._update_filter_button()
         Cli3App.instance().updateMainWindiwSignal.emit()
 
     def has_filter(self):
         if self.tableView.selectionModel().hasSelection():
-            self.filterButton.setDisabled(False)
             indexes = self.tableView.selectionModel().selection().indexes()
             has_filter = self.tableView.model().hasFilter(indexes[0].column())
             return has_filter
         else:
             return None
 
-    def _update_filter_button(self) -> None:
-        """
-        Set filter button to checked if column has filter unchecked else
-        :return:
-        """
-        if self.tableView.selectionModel().hasSelection():
-            self.filterButton.setDisabled(False)
-            indexes = self.tableView.selectionModel().selection().indexes()
-            has_filter = self.tableView.model().hasFilter(indexes[0].column())
-            self.filterButton.setChecked(has_filter)
-        else:
-            self.filterButton.setDisabled(True)
+    def set_filter(self):
+        self._filter_model()
 
     def _filter_model(self) -> None:
         """
@@ -435,11 +422,18 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
                 self.tableView.model().resetFilter(indexes[0].column())
             else:
                 self.tableView.model().setFilter(indexes[0].column(), cell)
-            self._update_filter_button()
             idx = self.tableView.model().index(0, indexes[0].column())
             self.tableView.selectionModel().select(idx, QItemSelectionModel.ClearAndSelect)
             self.tableView.resizeColumnToContents(indexes[0].column())
         Cli3App.instance().updateMainWindiwSignal.emit()
+
+    locked = False
+
+    def is_locked(self):
+        return self.locked
+
+    def refresh(self):
+        self._refresh_model()
 
     def _refresh_model(self):
         """
@@ -449,7 +443,8 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         self._request.getDoneSignal.connect(self._model_refreshed)
         Cli3App.instance().session.send_request(self._request)
         Cli3App.instance().session.requestSentSignal.emit(self._request)
-        self.refreshButton.setDisabled(True)
+        self.locked = True
+        Cli3App.instance().updateMainWindiwSignal.emit()
 
     def _model_refreshed(self, request: Request):
         """
@@ -460,10 +455,11 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         self._request.getDoneSignal.disconnect(self._model_refreshed)
         self._request = request
         Cli3App.instance().session.requestDoneSignal.emit(self._request)
+        self.locked = False
         print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
             self.set_request(request=request)
-        self.refreshButton.setDisabled(False)
+        Cli3App.instance().updateMainWindiwSignal.emit()
 
     def save(self, filename):
         with open(filename, 'wb') as outp:

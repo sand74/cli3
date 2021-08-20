@@ -33,6 +33,7 @@ class Cli3App(QApplication):
             'table': qta.icon('mdi.file-table'),
             'send': qta.icon('mdi.send-circle'),
             'filter': qta.icon('fa.filter'),
-            'folder': qta.icon('fa5s.folder', color='orange'),
+            'folder_close': qta.icon('ei.folder-close', color='orange'),
+            'folder_open': qta.icon('ei.folder-open', color='orange'),
             'file': qta.icon('fa5s.file', color='blue'),
         }

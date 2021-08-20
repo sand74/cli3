@@ -1,20 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
-    <class>TableWindow</class>
-    <widget class="QWidget" name="TableWindow">
+    <class>navigatorPane</class>
+    <widget class="QWidget" name="navigatorPane">
         <property name="geometry">
             <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>862</width>
-                <height>669</height>
+                <width>341</width>
+                <height>574</height>
             </rect>
-        </property>
-        <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-            </sizepolicy>
         </property>
         <property name="windowTitle">
             <string>Form</string>
@@ -30,10 +24,17 @@
                 <number>6</number>
             </property>
             <property name="bottomMargin">
-                <number>2</number>
+                <number>6</number>
             </property>
             <item>
-                <widget class="QTableView" name="tableView"/>
+                <widget class="QTreeView" name="navTreeView">
+                    <property name="contextMenuPolicy">
+                        <enum>Qt::CustomContextMenu</enum>
+                    </property>
+                    <attribute name="headerVisible">
+                        <bool>false</bool>
+                    </attribute>
+                </widget>
             </item>
         </layout>
     </widget>
