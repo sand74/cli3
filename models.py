@@ -24,8 +24,6 @@ class Folder(object):
         return f'Folder {self._name}'
 
 
-
-
 class InputField(object):
     """
     Модель поля ввода
@@ -159,12 +157,71 @@ class Query(object):
                 request += f'&{param.name}={param.value}'
         return request
 
-    def get_full_name(self):
+    def get_full_name(self, params):
+        if params is None:
+            params = {}
         full_name = self.name
         if self.has_in_params():
             full_name += ' ['
         for param in self.in_params:
-            full_name += f'{param.title}={param.value}, '
+            if param.name in params:
+                full_name += f'{param.title}={params[param.name]}, '
+            else:
+                full_name += f'{param.title}={param.value}, '
         if self.has_in_params():
             full_name = full_name[:-2] + ']'
         return full_name
+
+
+class Column(object):
+    def __init__(self, column):
+        self._name = column['name'].upper()
+        self._title = column.get('title', None)
+        self._type = column.get('type', 'STRING').upper()
+        self._width = column.get('width', 0)
+        self._format = column.get('format', None)
+        self._visable = column.get('visible', True)
+        self._nci = column.get('nci', {})
+        self._nci_column = column.get('nci_column', None)
+        self._subqueries = []
+        for subquery in column.get('subqueries', []):
+            self._subqueries.append(Query(subquery))
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def title(self):
+        return self._title
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def format(self):
+        return self._format
+
+    @property
+    def visable(self):
+        return self._visable
+
+    @property
+    def nci(self):
+        return self._nci
+
+    @property
+    def nci_column(self):
+        return self._nci_column
+
+    @property
+    def subqueries(self):
+        return self._subqueries
+
+    def has_subqueries(self):
+        return len(self._subqueries) > 0

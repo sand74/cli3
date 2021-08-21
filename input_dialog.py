@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Any
 
@@ -121,10 +122,13 @@ class ComboSelectField(QtWidgets.QComboBox, ParamMixin):
         if param.field.values is not None:
             for value in param.field.values.split('\n'):
                 key, value = value.split('=', maxsplit=1)
+                value = re.sub(r'^\W+|\W+$', '', value)
                 self.addItem(key, value)
             index = self.findData(param.value)
             if index >= 0:
                 self.setCurrentIndex(index)
+            else:
+                self.setCurrentIndex(0)
 
     def get_value(self):
         """

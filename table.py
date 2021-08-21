@@ -5,11 +5,11 @@ import pandas as pd
 import qtawesome as qta
 from PyQt5 import QtWidgets, QtCore, QtNetwork, QtGui
 from PyQt5.QtCore import QAbstractTableModel, Qt, QDateTime, QDate, QModelIndex, \
-    QItemSelectionModel, QPoint
+    QItemSelectionModel, QPoint, QSize
 from PyQt5.QtWidgets import QAbstractItemView, QWhatsThis
 
 from app import Cli3App
-from models import Query
+from models import Query, Column
 from network import Request
 from ui.table import Ui_TableWindow
 
@@ -29,14 +29,10 @@ class Cli3TableModel(QAbstractTableModel):
         """
         super().__init__()
         self._filters = {}
-        self._columns = columns
-        # Sets all names and types to upper case
-        for i in range(len(self._columns)):
-            columns[i]['name'] = columns[i]['name'].upper()
-            columns[i]['type'] = columns[i].get('type', 'STRING').upper()
-        self._source = pd.DataFrame(data, columns=[column['name'] for column in columns], dtype=str)
+        self._columns = [Column(column) for column in columns]
+        self._source = pd.DataFrame(data, columns=[column.name for column in self._columns], dtype=str)
         # Change columns datatypes
-        for name, type in [(column['name'], column.get('type', 'STRING')) for column in columns]:
+        for name, type in [(column.name, column.type) for column in self._columns]:
             if type == 'NUMBER':
                 self._source[name] = self._source[name].astype('float')
             elif type in ['DATE', 'DATETIME', 'TIME']:
@@ -44,9 +40,20 @@ class Cli3TableModel(QAbstractTableModel):
             elif type == 'BOOL':
                 self._source[name] = self._source[name].apply(lambda x: str(x).upper() == 'TRUE').astype('bool')
 
-        self._visable_columns = [column['name'] for column in columns if
-                                 'title' in column.keys() and column['visable'] == True]
+        self._visable_columns = [column.name for column in self._columns if
+                                 column.title is not None and column.visable == True]
         self._dataframe = self._source.loc[:, self._visable_columns]
+
+    def get_column_by_name(self, name):
+        columns = [column for column in self._columns if column.name == name]
+        if len(columns) > 0:
+            return columns[0]
+        return None
+
+    def get_column_by_index(self, column):
+        if column >= 0 and column < len(self._columns):
+            return self._columns[column]
+        return None
 
     def _get_source_column(self, column):
         """
@@ -188,12 +195,13 @@ class Cli3TableModel(QAbstractTableModel):
         """
         style = None
         if 'STYLE' in self._source.columns:
-            style = self._source.loc[row, 'STYLE']
+            style = self._source.loc[self._get_source_row(row), 'STYLE']
         column_name = self._dataframe.columns[column]
         if f'STYLE_{column_name}' in self._source.columns:
-            style = self._source.loc[row, f'STYLE_{column_name}']
-        if style is not None and style in Cli3App.instance().styles.keys():
-            return Cli3App.instance().styles[style]
+            style = self._source.loc[self._get_source_row(row), f'STYLE_{column_name}']
+        if style is not None:
+            if style in Cli3App.instance().styles.keys():
+                return Cli3App.instance().styles[style]
         return None
 
     def _get_cell_value(self, row: int, column: int):
@@ -206,25 +214,25 @@ class Cli3TableModel(QAbstractTableModel):
         if self._dataframe.iloc[row, column] == None:
             return None
         src_column = self._get_source_column(column)
-        if self._columns[src_column].get('type', 'STRING') == 'DATETIME':
+        if self._columns[src_column].type == 'DATETIME':
             datetime = QDateTime(self._dataframe.iloc[row, column])
             return QtCore.QVariant(datetime)
-        elif self._columns[src_column].get('type', 'STRING') == 'DATE':
+        elif self._columns[src_column].type == 'DATE':
             date = QDate(self._dataframe.iloc[row, column])
             return QtCore.QVariant(date)
-        elif self._columns[src_column].get('type', 'STRING') == 'TIME':
+        elif self._columns[src_column].type == 'TIME':
             time = QDate(self._dataframe.iloc[row, column])
             return QtCore.QVariant(time)
-        elif self._columns[src_column].get('type', 'STRING') == 'NUMBER':
+        elif self._columns[src_column].type == 'NUMBER':
             number = float(self._dataframe.iloc[row, column])
             return QtCore.QVariant(number)
-        elif self._columns[src_column].get('type', 'STRING') == 'BOOL':
+        elif self._columns[src_column].type == 'BOOL':
             boolean = bool(self._dataframe.iloc[row, column])
-            return QtCore.QVariant(boolean)
+            return QtCore.QVariant()  # QtCore.QVariant(boolean)
         else:
             value = str(self._dataframe.iloc[row, column])
-            nci = self._columns[src_column].get('nci', None)
-            nci_column = self._columns[src_column].get('nci_column', None)
+            nci = self._columns[src_column].nci
+            nci_column = self._columns[src_column].nci_column
             if nci is not None and nci_column is not None:
                 value = self._get_value_from_nci(value, nci.get('name', None), nci_column.upper())
             return QtCore.QVariant(value)
@@ -246,7 +254,7 @@ class Cli3TableModel(QAbstractTableModel):
 
     def _get_check_value(self, row: int, column: int):
         src_column = self._get_source_column(column)
-        if self._columns[src_column].get('type', 'STRING') == 'BOOL':
+        if self._columns[src_column].type == 'BOOL':
             boolean = bool(self._dataframe.iloc[row, column])
             return Qt.Checked if boolean else Qt.Unchecked
         else:
@@ -255,9 +263,9 @@ class Cli3TableModel(QAbstractTableModel):
     def headerData(self, column, orientation, role=QtCore.Qt.DisplayRole):
         if orientation == QtCore.Qt.Horizontal:
             if role == QtCore.Qt.DisplayRole:
-                col = next((c for c in self._columns if c['name'] == self._visable_columns[column]), None)
+                col = next((c for c in self._columns if c.name == self._visable_columns[column]), None)
                 if col is not None:
-                    return QtCore.QVariant(col.get('title', col['name']))
+                    return QtCore.QVariant(col.title)
             elif role == QtCore.Qt.DecorationRole:
                 if self.hasFilter(column):
                     return Cli3App.instance().icons.get('filter')
@@ -275,7 +283,14 @@ class Cli3TableModel(QAbstractTableModel):
         :return:
         """
         col = self._dataframe.columns[column]
-        self._dataframe.sort_values(by=[col], ascending=True if order == 0 else False, inplace=True, axis=0)
+        # Temporary column with display value of column
+        self._dataframe['_FOR_SORT'] = self._dataframe.apply(
+            lambda row: self._get_cell_value(self._dataframe.index.get_loc(row.name), column), axis=1)
+        # Sort by temp column
+        self._dataframe.sort_values(by=['_FOR_SORT'], ascending=True if order == 0 else False,
+                                    inplace=True, axis=0)
+        # drop temp column
+        self._dataframe.drop('_FOR_SORT', axis=1, inplace=True)
         self.layoutChanged.emit()
         super().sort(column, order)
 
@@ -308,17 +323,22 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
     Класс окна одной таблицы
     """
 
-    def __init__(self):
+    def __init__(self, parent):
         """
         TableWindow creates from request object
         :param request:
         """
-        super().__init__()
+        super().__init__(parent=parent)
         self.setupUi(self)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.tableView.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tableView.customContextMenuRequested.connect(self._show_context_menu)
         self.tableView.setSelectionBehavior(QAbstractItemView.SelectItems)
+        # preffered szie 3/4 from mdi
+        self._preffered_size = QSize(parent.size().width() // 4 * 3, parent.size().height() // 4 * 3)
+
+    def sizeHint(self):
+        return self._preffered_size
 
     def set_request(self, request: Request):
         self._request = request
@@ -330,18 +350,31 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
                 model = Cli3TableModel(data, columns)
                 self.setModel(model)
                 break
-        self.setWindowTitle(request.query.get_full_name())
+        self.setWindowTitle(request.query.get_full_name(request.params))
 
     def _show_context_menu(self, point):
         index = self.tableView.indexAt(point)
         if not index.isValid():
             return
         menu = QtWidgets.QMenu()
+        column_index = self.tableView.model()._get_source_column(index.column())
+        column = self.tableView.model().get_column_by_index(column_index)
+        if column.has_subqueries():
+            for subquery in column.subqueries:
+                action = menu.addAction(subquery.name)
+                action.setIcon(Cli3App.instance().icons.get('table'))
+                action.triggered.connect(lambda x: self._send_query(index, subquery))
+
+        if column.has_subqueries() and self._request.query.has_subqueries():
+            menu.addSeparator()
+
         if self._request.query.has_subqueries():
             for subquery in self._request.query.subqueries:
                 action = menu.addAction(subquery.name)
                 action.setIcon(Cli3App.instance().icons.get('table'))
                 action.triggered.connect(lambda x: self._send_query(index, subquery))
+
+        if column.has_subqueries() or self._request.query.has_subqueries():
             menu.addSeparator()
             menu.addAction("Cancel")
             menu.exec_(self.tableView.mapToGlobal(point))
@@ -379,6 +412,7 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         # init menu actions
 
     _last_sorted_column = -1
+    _last_sort_order = -1
 
     def _change_sort_order(self, column):
         """
@@ -392,9 +426,11 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
             self.tableView.horizontalHeader().setSortIndicatorShown(False)
             self.tableView.model().unsort(column)
             self._last_sorted_column = -1
+            self._last_sort_order = None
         else:
             self.tableView.horizontalHeader().setSortIndicatorShown(True)
             self._last_sorted_column = column
+            self._last_sort_order = self.tableView.horizontalHeader().sortIndicatorOrder()
 
     def _selection_changed(self, new_selection, old_selection):
         Cli3App.instance().updateMainWindiwSignal.emit()
@@ -420,6 +456,9 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
             cell = self.tableView.model().itemData(indexes[0])
             if self.tableView.model().hasFilter(indexes[0].column()):
                 self.tableView.model().resetFilter(indexes[0].column())
+                if self._last_sorted_column != -1:
+                    # Resore last sort
+                    self.tableView.model().sort(self._last_sorted_column, self._last_sort_order)
             else:
                 self.tableView.model().setFilter(indexes[0].column(), cell)
             idx = self.tableView.model().index(0, indexes[0].column())

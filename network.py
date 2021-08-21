@@ -9,7 +9,7 @@ from models import Query
 
 class NetworkException(Exception):
     def __init__(self, err: int, message: str):
-        self.__init__(f"Network error {err} - {message}")
+        super().__init__(f"Network error {err} - {message}")
 
 
 class Request(QObject):

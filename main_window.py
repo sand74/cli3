@@ -152,7 +152,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def _open_answer(self):
         filename = QFileDialog.getOpenFileName(self, 'Open')[0]
         if filename is not None and len(filename) > 0:
-            window = TableWindow().load(filename)
+            window = TableWindow(self.mdiArea).load(filename)
             if window is not None:
                 self.mdiArea.addSubWindow(window).show()
 
@@ -229,10 +229,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if request.error == 0:
             print('Answer', request.answer)
             if request.query.type == 'table':
-                window = TableWindow()
+                window = TableWindow(self.mdiArea)
                 window.set_request(request=request)
             else:
-                window = TableWindow()
+                window = TableWindow(self.mdiArea)
                 window.set_request(request=request)
             self.mdiArea.addSubWindow(window).show()
 

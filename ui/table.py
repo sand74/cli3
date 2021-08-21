@@ -15,7 +15,7 @@ class Ui_TableWindow(object):
     def setupUi(self, TableWindow):
         TableWindow.setObjectName("TableWindow")
         TableWindow.resize(862, 669)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(TableWindow.sizePolicy().hasHeightForWidth())
