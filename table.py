@@ -1,5 +1,6 @@
 import json
 import pickle
+from functools import partial
 
 import pandas as pd
 import qtawesome as qta
@@ -55,7 +56,7 @@ class Cli3TableModel(QAbstractTableModel):
             return self._columns[column]
         return None
 
-    def _get_source_column(self, column):
+    def get_source_column(self, column):
         """
         Get column index in source dataframe
         :param column:
@@ -63,7 +64,7 @@ class Cli3TableModel(QAbstractTableModel):
         """
         return self._source.columns.get_loc(self._dataframe.columns[column])
 
-    def _get_source_row(self, row):
+    def get_source_row(self, row):
         """
         Get row index in source dataframe
         :param column:
@@ -77,9 +78,11 @@ class Cli3TableModel(QAbstractTableModel):
         :param index: visible index
         :return: source index
         """
-        if index.row() >= 0 and index.row() < len(self._dataframe.values):
-            if index.column() >= 0 and index.column() < len(self._dataframe.columns):
-                return self.index(self._get_source_row(index.row()), self._get_source_column(index.column()))
+        if 0 <= index.row() < len(self._dataframe.values):
+            if 0 <= index.column() < len(self._dataframe.columns):
+                row = self.get_source_row(index.row())
+                column = self.get_source_column(index.column())
+                return self.index(row, column)
         return QModelIndex()
 
     @property
@@ -195,10 +198,10 @@ class Cli3TableModel(QAbstractTableModel):
         """
         style = None
         if 'STYLE' in self._source.columns:
-            style = self._source.loc[self._get_source_row(row), 'STYLE']
+            style = self._source.loc[self.get_source_row(row), 'STYLE']
         column_name = self._dataframe.columns[column]
         if f'STYLE_{column_name}' in self._source.columns:
-            style = self._source.loc[self._get_source_row(row), f'STYLE_{column_name}']
+            style = self._source.loc[self.get_source_row(row), f'STYLE_{column_name}']
         if style is not None:
             if style in Cli3App.instance().styles.keys():
                 return Cli3App.instance().styles[style]
@@ -213,7 +216,7 @@ class Cli3TableModel(QAbstractTableModel):
         """
         if self._dataframe.iloc[row, column] == None:
             return None
-        src_column = self._get_source_column(column)
+        src_column = self.get_source_column(column)
         if self._columns[src_column].type == 'DATETIME':
             datetime = QDateTime(self._dataframe.iloc[row, column])
             return QtCore.QVariant(datetime)
@@ -253,7 +256,7 @@ class Cli3TableModel(QAbstractTableModel):
         return key
 
     def _get_check_value(self, row: int, column: int):
-        src_column = self._get_source_column(column)
+        src_column = self.get_source_column(column)
         if self._columns[src_column].type == 'BOOL':
             boolean = bool(self._dataframe.iloc[row, column])
             return Qt.Checked if boolean else Qt.Unchecked
@@ -357,45 +360,52 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         if not index.isValid():
             return
         menu = QtWidgets.QMenu()
-        column_index = self.tableView.model()._get_source_column(index.column())
+        column_index = self.tableView.model().get_source_column(index.column())
         column = self.tableView.model().get_column_by_index(column_index)
         if column.has_subqueries():
             for subquery in column.subqueries:
-                action = menu.addAction(subquery.name)
-                action.setIcon(Cli3App.instance().icons.get('table'))
-                action.triggered.connect(lambda x: self._send_query(index, subquery))
+                query = self._make_query(subquery, index)
+                if query is not None:
+                    action = menu.addAction(query.name)
+                    action.setIcon(Cli3App.instance().icons.get('table'))
+                    action.triggered.connect(partial(self._send_query, query))
 
         if column.has_subqueries() and self._request.query.has_subqueries():
             menu.addSeparator()
 
         if self._request.query.has_subqueries():
             for subquery in self._request.query.subqueries:
-                action = menu.addAction(subquery.name)
-                action.setIcon(Cli3App.instance().icons.get('table'))
-                action.triggered.connect(lambda x: self._send_query(index, subquery))
+                query = self._make_query(subquery, index)
+                if query is not None:
+                    action = menu.addAction(query.name)
+                    action.setIcon(Cli3App.instance().icons.get('table'))
+                    action.triggered.connect(partial(self._send_query, query))
 
         if column.has_subqueries() or self._request.query.has_subqueries():
             menu.addSeparator()
             menu.addAction("Cancel")
             menu.exec_(self.tableView.mapToGlobal(point))
 
-    def _send_query(self, index, query) -> None:
-        """
-        Resen query context menu call anothe request
-        :param index: column index
-        :param query: Query to send
-        :return:
-        """
+    def _make_query(self, query, index):
         err, message = Cli3App.instance().session.get(f'{Cli3App.instance().session.QUERY_API}?id={query.id}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_query = json.loads(message)
             query = Query(json_query)
-            idx = self.tableView.model().get_source_index(index)
-            row = self.tableView.model().source.loc[idx.row(), :]
+            row_idx = self.tableView.model().get_source_row(index.row())
+            row = self.tableView.model().source.loc[row_idx, :]
             for param in query.in_params:
                 if param.name.upper() in row.index:
                     param.value = row[param.name.upper()]
-            Cli3App.instance().session.send_query(query)
+            return query
+        return None
+
+    def _send_query(self, query) -> None:
+        """
+        Resen query context menu call anothe request
+        :param query: Query to send
+        :return:
+        """
+        Cli3App.instance().session.send_query(query)
 
     def setModel(self, model: QAbstractTableModel):
         self.tableView.setModel(model)
