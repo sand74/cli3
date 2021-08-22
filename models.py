@@ -101,7 +101,7 @@ class Query(object):
         self._id = query['id']
         self._name = query['name']
         self._url = query['url']
-        self._type = query.get('type', 'table')
+        self._type = query.get('type', 'TABLE')
         self._params = []
         for param, value in query.get('params', {}).items():
             self._params.append(Param(value))

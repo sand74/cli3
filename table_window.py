@@ -7,9 +7,11 @@ import qtawesome as qta
 from PyQt5 import QtWidgets, QtCore, QtNetwork, QtGui
 from PyQt5.QtCore import QAbstractTableModel, Qt, QDateTime, QDate, QModelIndex, \
     QItemSelectionModel, QPoint, QSize
+from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QAbstractItemView, QWhatsThis
 
 from app import Cli3App
+from mdi_window import MdiWindow
 from models import Query, Column
 from network import Request
 from ui.table import Ui_TableWindow
@@ -44,6 +46,11 @@ class Cli3TableModel(QAbstractTableModel):
         self._visable_columns = [column.name for column in self._columns if
                                  column.title is not None and column.visable == True]
         self._dataframe = self._source.loc[:, self._visable_columns]
+
+    def get_visable_dataframe(self):
+        visable_df = self._dataframe.copy()
+        visable_df.columns = self._visable_columns
+        return visable_df
 
     def get_column_by_name(self, name):
         columns = [column for column in self._columns if column.name == name]
@@ -302,26 +309,7 @@ class Cli3TableModel(QAbstractTableModel):
         self._dataframe.sort_index(inplace=True)
 
 
-class Cli3WindowMixin():
-    def save(self, filename):
-        pass
-
-    def load(self, filename):
-        pass
-
-    def has_filter(self):
-        return None
-
-    def set_filter(self):
-        pass
-
-    def is_locked(self) -> bool:
-        return False
-
-    def refresh(self):
-        pass
-
-class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
+class TableWindow(MdiWindow, Ui_TableWindow):
     """
     Класс окна одной таблицы
     """
@@ -333,18 +321,12 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
         """
         super().__init__(parent=parent)
         self.setupUi(self)
-        self.setAttribute(Qt.WA_DeleteOnClose)
         self.tableView.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tableView.customContextMenuRequested.connect(self._show_context_menu)
         self.tableView.setSelectionBehavior(QAbstractItemView.SelectItems)
-        # preffered szie 3/4 from mdi
-        self._preffered_size = QSize(parent.size().width() // 4 * 3, parent.size().height() // 4 * 3)
-
-    def sizeHint(self):
-        return self._preffered_size
 
     def set_request(self, request: Request):
-        self._request = request
+        super().set_request(request)
         self._answer = json.loads(request.answer)
         for attribute, value in self._answer.items():
             if value['type'] == 'cursor':
@@ -353,7 +335,6 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
                 model = Cli3TableModel(data, columns)
                 self.setModel(model)
                 break
-        self.setWindowTitle(request.query.get_full_name(request.params))
 
     def _show_context_menu(self, point):
         index = self.tableView.indexAt(point)
@@ -476,46 +457,11 @@ class TableWindow(QtWidgets.QFrame, Ui_TableWindow, Cli3WindowMixin):
             self.tableView.resizeColumnToContents(indexes[0].column())
         Cli3App.instance().updateMainWindiwSignal.emit()
 
-    locked = False
+#    def print(self, printer):
+#        painter = QPainter()
+#        painter.begin(printer)
+#        self.tableView.render(painter)
 
-    def is_locked(self):
-        return self.locked
-
-    def refresh(self):
-        self._refresh_model()
-
-    def _refresh_model(self):
-        """
-        Resend request linked to this table
-        :return:
-        """
-        self._request.getDoneSignal.connect(self._model_refreshed)
-        Cli3App.instance().session.send_request(self._request)
-        Cli3App.instance().session.requestSentSignal.emit(self._request)
-        self.locked = True
-        Cli3App.instance().updateMainWindiwSignal.emit()
-
-    def _model_refreshed(self, request: Request):
-        """
-        Update table model with new Request
-        :param request:
-        :return:
-        """
-        self._request.getDoneSignal.disconnect(self._model_refreshed)
-        self._request = request
-        Cli3App.instance().session.requestDoneSignal.emit(self._request)
-        self.locked = False
-        print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
-        if request.error == 0:
-            self.set_request(request=request)
-        Cli3App.instance().updateMainWindiwSignal.emit()
-
-    def save(self, filename):
-        with open(filename, 'wb') as outp:
-            pickle.dump(self._request, outp, pickle.HIGHEST_PROTOCOL)
-
-    def load(self, filename):
-        with open(filename, 'rb') as inp:
-            request = pickle.load(inp)
-            self.set_request(request=request)
-            return self
+#    def to_excel(self, filename):
+#        df = self.tableView.model().get_visable_dataframe()
+#        df.to_excel(filename)

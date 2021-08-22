@@ -36,4 +36,7 @@ class Cli3App(QApplication):
             'folder_close': qta.icon('ei.folder-close', color='orange'),
             'folder_open': qta.icon('ei.folder-open', color='orange'),
             'file': qta.icon('fa5s.file', color='blue'),
+            'print': qta.icon('fa.print'),
+            'excel': qta.icon('fa5.file-excel'),
+            'pdf': qta.icon('fa5.file-pdf'),
         }

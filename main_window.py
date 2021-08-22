@@ -1,23 +1,38 @@
 import datetime
 import json
+import pickle
 import sys
 from functools import partial
 
 import qtawesome as qta
 from PyQt5 import QtWidgets, QtNetwork, QtGui
 from PyQt5.QtCore import QSettings, QCoreApplication, pyqtSignal
+from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QTableWidget, QHeaderView, QMdiArea, \
-    QFileDialog, QTreeWidgetItem, QMenu, QAction
+    QFileDialog, QTreeWidgetItem, QMenu, QAction, QMessageBox, QDialog
 
 from app import Cli3App
 from input_dialog import InputDialog
 from log_view import LogPane
 from login import LoginDialog
+from mdi_window import MdiWindow
 from models import Query, Folder
 from navigator import FoldersTreeModel, QueryTreeItem, NavigatorPane, FolderTreeItem
 from network import Request
-from table import TableWindow, Cli3WindowMixin
+from series_window import SeriesWindow
+from table_window import TableWindow
+from text_window import TextWindow
 from ui.main_window import Ui_MainWindow
+
+
+def show_eror(error_text, e: Exception):
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Critical)
+    msg.setText(error_text)
+    msg.setInformativeText(e)
+    msg.setWindowTitle("Error")
+    msg.setDetailedText(e)
+
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     """
@@ -62,6 +77,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionLog.triggered.connect(self._invert_log_visable)
         self.actionUpdateFolders.setIcon(Cli3App.instance().icons.get('sync'))
         self.actionUpdateFolders.triggered.connect(self.navigatorPane.fill_contents)
+        self.actionPrint.setIcon(Cli3App.instance().icons.get('print'))
+        self.actionPrint.triggered.connect(self._print_answer)
+        self.actionToExcel.setIcon(Cli3App.instance().icons.get('excel'))
+        self.actionToExcel.triggered.connect(self._export_answer_to_excel)
+        self.actionToPdf.setIcon(Cli3App.instance().icons.get('pdf'))
+        self.actionToPdf.triggered.connect(self._export_answer_to_pdf)
         # Menu
         self.menuWindow.aboutToShow.connect(self._update_window_list)
         self._create_query_menu()
@@ -121,21 +142,34 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionSave.setEnabled(active_sub_window is not None)
         self.actionFilter.setEnabled(False)
         self.actionRefresh.setEnabled(False)
+        self.actionToExcel.setEnabled(False)
+        self.actionToPdf.setEnabled(False)
+        self.actionPrint.setEnabled(False)
         if active_sub_window is not None:
-            if isinstance(active_sub_window.widget(), Cli3WindowMixin):
-                has_filter = active_sub_window.widget().has_filter()
+            sub_widget = active_sub_window.widget()
+            if isinstance(sub_widget, MdiWindow):
+                has_filter = sub_widget.has_filter()
                 if has_filter is not None:
                     self.actionFilter.setEnabled(True)
                     self.actionFilter.setChecked(has_filter)
                 else:
                     self.actionFilter.setEnabled(False)
                     self.actionFilter.setChecked(False)
-                is_locked = active_sub_window.widget().is_locked()
+                is_locked = sub_widget.is_locked()
                 self.actionRefresh.setEnabled(not is_locked)
+                self.actionToExcel.setEnabled(
+                    hasattr(sub_widget, 'to_excel') and callable(getattr(sub_widget, 'to_excel')))
+                self.actionToPdf.setEnabled(
+                    hasattr(sub_widget, 'to_pdf') and callable(getattr(sub_widget, 'to_pdf')))
+                self.actionPrint.setEnabled(
+                    hasattr(sub_widget, 'print') and callable(getattr(sub_widget, 'print')))
 
     def _fill_toolbar(self):
         self.toolBar.addAction(self.actionOpen)
         self.toolBar.addAction(self.actionSave)
+        self.toolBar.addAction(self.actionPrint)
+        self.toolBar.addAction(self.actionToExcel)
+        self.toolBar.addAction(self.actionToPdf)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionUpdateFolders)
         self.toolBar.addSeparator()
@@ -144,26 +178,52 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _save_answer(self):
         window = self.mdiArea.activeSubWindow()
-        if window is not None and isinstance(window.widget(), Cli3WindowMixin):
-            filename = QFileDialog.getSaveFileName(self, 'Save to')[0]
+        if window is not None and isinstance(window.widget(), MdiWindow):
+            filename = QFileDialog.getSaveFileName(self, 'Save to ...')[0]
             if filename is not None and len(filename) > 0:
                 window.widget().save(filename)
+
+    def _print_answer(self):
+        window = self.mdiArea.activeSubWindow()
+        if window is not None and isinstance(window.widget(), MdiWindow):
+            printer = QPrinter()
+            dialog = QPrintDialog(printer, self)
+            dialog.setWindowTitle("Print Document")
+            if (dialog.exec() == QDialog.Accepted):
+                window.widget().print(printer)
+
+    def _export_answer_to_pdf(self):
+        window = self.mdiArea.activeSubWindow()
+        if window is not None and isinstance(window.widget(), MdiWindow):
+            filename = QFileDialog.getSaveFileName(self, 'Export pdf to ...')[0]
+            if filename is not None and len(filename) > 0:
+                window.widget().to_pdf(filename)
+
+    def _export_answer_to_excel(self):
+        window = self.mdiArea.activeSubWindow()
+        if window is not None and isinstance(window.widget(), MdiWindow):
+            filename = QFileDialog.getSaveFileName(self, 'Export excel to ...')[0]
+            if filename is not None and len(filename) > 0:
+                window.widget().to_excel(filename)
 
     def _open_answer(self):
         filename = QFileDialog.getOpenFileName(self, 'Open')[0]
         if filename is not None and len(filename) > 0:
-            window = TableWindow(self.mdiArea).load(filename)
-            if window is not None:
-                self.mdiArea.addSubWindow(window).show()
+            with open(filename, 'rb') as inp:
+                try:
+                    request = pickle.load(inp)
+                    self.answer_received(request)
+                except Exception as e:
+                    show_eror('Can not open answer', e)
 
     def _set_filter(self):
         window = self.mdiArea.activeSubWindow()
-        if window is not None and isinstance(window.widget(), Cli3WindowMixin):
+        if window is not None and isinstance(window.widget(), MdiWindow):
             window.widget().set_filter()
 
     def _refresh(self):
         window = self.mdiArea.activeSubWindow()
-        if window is not None and isinstance(window.widget(), Cli3WindowMixin):
+        if window is not None and isinstance(window.widget(), MdiWindow):
             window.widget().refresh()
 
     def _invert_nav_visable(self):
@@ -228,8 +288,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
             print('Answer', request.answer)
-            if request.query.type == 'table':
+            if request.query.type == 'TABLE':
                 window = TableWindow(self.mdiArea)
+                window.set_request(request=request)
+            elif request.query.type == 'SERIES':
+                window = SeriesWindow(self.mdiArea)
+                window.set_request(request=request)
+            elif request.query.type == 'TEXT':
+                window = TextWindow(self.mdiArea)
                 window.set_request(request=request)
             else:
                 window = TableWindow(self.mdiArea)

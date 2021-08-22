@@ -47,22 +47,26 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>986</width>
-     <height>24</height>
+        <width>986</width>
+        <height>24</height>
     </rect>
    </property>
-   <property name="defaultUp">
-    <bool>true</bool>
-   </property>
-   <property name="nativeMenuBar">
-    <bool>true</bool>
-   </property>
+      <property name="defaultUp">
+          <bool>true</bool>
+      </property>
+      <property name="nativeMenuBar">
+          <bool>true</bool>
+      </property>
       <widget class="QMenu" name="menuFile">
           <property name="title">
               <string>File</string>
           </property>
           <addaction name="actionOpen"/>
           <addaction name="actionSave"/>
+          <addaction name="actionToExcel"/>
+          <addaction name="actionToPdf"/>
+          <addaction name="separator"/>
+          <addaction name="actionPrint"/>
           <addaction name="separator"/>
           <addaction name="actionExit"/>
       </widget>
@@ -286,6 +290,21 @@
      <action name="actionEmpty">
          <property name="text">
              <string>Empty</string>
+         </property>
+     </action>
+     <action name="actionPrint">
+         <property name="text">
+             <string>Print</string>
+         </property>
+     </action>
+     <action name="actionToExcel">
+         <property name="text">
+             <string>ToEcxel</string>
+         </property>
+     </action>
+     <action name="actionToPdf">
+         <property name="text">
+             <string>ToPdf</string>
          </property>
      </action>
  </widget>
