@@ -115,6 +115,9 @@ class Session(QObject):
         self._server = server if server.endswith('/') else server + '/'
         self._schema = schema[:-1] if schema.endswith('/') else schema
 
+    def get_base_url(self):
+        return self._make_url('')
+
     def login(self, username, password) -> None:
         """
         Send login query

@@ -1,0 +1,18 @@
+app = BUNDLE(exe,
+         name='Cli3.app',
+         icon=None,
+         bundle_identifier='com.sand.cli3',
+         version='0.0.1',
+         info_plist={
+            'NSPrincipalClass': 'NSApplication',
+            'NSAppleScriptEnabled': False,
+            'CFBundleDocumentTypes': [
+                {
+                    'CFBundleTypeName': 'Cli3 Format',
+                    'CFBundleTypeIconFile': 'icons/cli3-32.icns',
+                    'LSItemContentTypes': ['com.sand.cli3'],
+                    'LSHandlerRank': 'Owner'
+                    }
+                ]
+            },
+         )

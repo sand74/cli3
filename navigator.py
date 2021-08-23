@@ -1,10 +1,9 @@
 import json
 import typing
 
-from PyQt5 import QtNetwork, QtCore, QtWidgets
+from PyQt5 import QtNetwork, QtWidgets
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QVariant, Qt, pyqtSignal
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QTreeView, QWidget
+from PyQt5.QtWidgets import QWidget
 
 from app import Cli3App
 from models import Folder, Query

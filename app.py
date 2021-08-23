@@ -1,10 +1,13 @@
+import pathlib
+import configparser
+import pathlib
 import typing
 
+import qtawesome as qta
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication
 
 from network import Session
-import qtawesome as qta
 
 
 class Cli3App(QApplication):
@@ -19,8 +22,22 @@ class Cli3App(QApplication):
         self.setApplicationName('Cli3')
         self.setOrganizationName('ICS')
         self.setApplicationVersion('1.1.1')
-        self.session = Session('http://127.0.0.1:8000', 'goodok')
+        path = pathlib.Path(__file__).parent.resolve()
+        config = self._read_config(str(path) + '/cli3.ini')
+        default_section = config['DEFAULT']
+        self.session = Session(f"http://{default_section.get('server')}:{default_section.get('port')}",
+                               default_section.get("schema"))
         self._load_icons()
+
+    def _read_config(self, filename):
+        config = configparser.ConfigParser()
+        config['DEFAULT'] = {
+            'server': '127.0.0.1',
+            'port': 8000,
+            'schema': 'common',
+        }
+        config.read(filename)
+        return config
 
     def _load_icons(self):
         self.icons = {

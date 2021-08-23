@@ -1,8 +1,5 @@
 # from PyQt5 import Qt
 
-import qtawesome as qta
-from PyQt5.QtWidgets import QTreeWidgetItem
-
 '''
 Модели объектов приложения
 '''

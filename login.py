@@ -1,9 +1,10 @@
 import json
 import os
+import pathlib
 
 import pandas as pd
 from PyQt5 import QtWidgets, QtNetwork
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QCoreApplication, QSettings
 from PyQt5.QtWidgets import QApplication
 
 from app import Cli3App
@@ -27,6 +28,32 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         self.buttonClose.clicked.connect(QApplication.quit)
         self.loadProgressBar.setMinimum(0)
         self.loadProgressBar.setTextVisible(True)
+        self._read_settings()
+        if self.usernameLineEdit.text() != '':
+            self.focusNextChild()
+            self.focusNextChild()
+        self.labelStatus.setText(Cli3App.instance().session.get_base_url())
+
+    def _write_settings(self) -> None:
+        """
+        Write main windows  Settings
+        :return:
+        """
+        settings = QSettings(QCoreApplication.organizationName(), QCoreApplication.applicationName())
+        settings.beginGroup(self.__class__.__name__)
+        settings.setValue("last_login", self.usernameLineEdit.text())
+        settings.endGroup()
+
+    def _read_settings(self) -> None:
+        """
+        Read main windows  Settings
+        :return:
+        """
+        settings = QSettings(QCoreApplication.organizationName(), QCoreApplication.applicationName())
+        settings.beginGroup(self.__class__.__name__)
+        if settings.contains("last_login"):
+            self.usernameLineEdit.setText(settings.value("last_login"))
+        settings.endGroup()
 
     def login(self) -> None:
         """
@@ -42,6 +69,7 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
     def _handle_login(self, err, message):
         Cli3App.instance().session.loggedInSignal.disconnect(self._handle_login)
         if err == QtNetwork.QNetworkReply.NoError:
+            self._write_settings()
             self.labelStatus.setStyleSheet("color: green")
             self.labelStatus.setText('Success')
             self._load_nci()
@@ -82,7 +110,9 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             progress_message = f"Loading {nci['name']} ..."
             self.loadProgressBar.setFormat(progress_message)
             self.labelStatus.setText(progress_message)
-            data_file = f"data/{nci['name']}.csv"
+            path = str(pathlib.Path(__file__).parent.resolve()) + '/data'
+            os.makedirs(path, exist_ok=True)
+            data_file = f"{path}/{nci['name']}.csv"
             if os.path.exists(data_file):
                 Cli3App.instance().nci[nci['name']] = pd.read_csv(data_file, dtype=str)
             else:

@@ -1,14 +1,14 @@
 import json
-import pickle
 from functools import partial
 
 import pandas as pd
-import qtawesome as qta
 from PyQt5 import QtWidgets, QtCore, QtNetwork, QtGui
 from PyQt5.QtCore import QAbstractTableModel, Qt, QDateTime, QDate, QModelIndex, \
-    QItemSelectionModel, QPoint, QSize
-from PyQt5.QtGui import QPainter
-from PyQt5.QtWidgets import QAbstractItemView, QWhatsThis
+    QItemSelectionModel
+from PyQt5.QtGui import QPainter, QTextDocument
+from PyQt5.QtWidgets import QAbstractItemView
+from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 from app import Cli3App
 from mdi_window import MdiWindow
@@ -49,7 +49,7 @@ class Cli3TableModel(QAbstractTableModel):
 
     def get_visable_dataframe(self):
         visable_df = self._dataframe.copy()
-        visable_df.columns = self._visable_columns
+        visable_df.columns = [self.get_column_by_name(column).title for column in visable_df.columns]
         return visable_df
 
     def get_column_by_name(self, name):
@@ -457,11 +457,48 @@ class TableWindow(MdiWindow, Ui_TableWindow):
             self.tableView.resizeColumnToContents(indexes[0].column())
         Cli3App.instance().updateMainWindiwSignal.emit()
 
-#    def print(self, printer):
-#        painter = QPainter()
-#        painter.begin(printer)
-#        self.tableView.render(painter)
+    def print(self, printer):
+        df = self.tableView.model().get_visable_dataframe()
+        document = QTextDocument()
+        html = f"""
+        <html>
+            <head>
+                <style>
+                    table.print-friendly tr td, table.print-friendly tr th {"{"}
+                        page-break-inside: avoid;
+                        white-space: nowrap;
+                    {"}"}
+                </style>
+            </head>
+            <body>
+                <h1>
+                    {self.windowTitle()}
+                </h1>
+                {df.to_html(classes=['print-friendly'])}
+            </body>
+        </html>
+        """
+        html = html.replace("<table", "<table width=100% border=1")
+        document.setHtml(html)
+        layout = document.documentLayout()
+        document_size = layout.documentSize()
+        painter = QPainter()
+        painter.begin(printer)
+        if printer.pageRect().width() < document_size.width():
+            xscale = printer.pageRect().width() / document_size.width()
+            painter.scale(xscale, xscale)
+        document.drawContents(painter)
+        painter.end()
 
-#    def to_excel(self, filename):
-#        df = self.tableView.model().get_visable_dataframe()
-#        df.to_excel(filename)
+    def to_excel(self, filename):
+        df = self.tableView.model().get_visable_dataframe()
+        date_columns = df.select_dtypes(include=['datetime64[ns, UTC]']).columns
+        for date_column in date_columns:
+            df[date_column] = df[date_column].astype(str)
+        wb = Workbook()
+        ws = wb.active
+        title = self.windowTitle()
+        ws.title = title[:title.find('[')]
+        for row in dataframe_to_rows(df, index=True, header=True):
+            ws.append(row)
+        wb.save(filename=filename)

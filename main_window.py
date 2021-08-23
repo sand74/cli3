@@ -1,23 +1,22 @@
-import datetime
+import json
 import json
 import pickle
 import sys
 from functools import partial
 
-import qtawesome as qta
 from PyQt5 import QtWidgets, QtNetwork, QtGui
 from PyQt5.QtCore import QSettings, QCoreApplication, pyqtSignal
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QTableWidget, QHeaderView, QMdiArea, \
-    QFileDialog, QTreeWidgetItem, QMenu, QAction, QMessageBox, QDialog
+from PyQt5.QtWidgets import QApplication, QMdiArea, \
+    QFileDialog, QMenu, QAction, QMessageBox, QDialog
 
 from app import Cli3App
 from input_dialog import InputDialog
 from log_view import LogPane
 from login import LoginDialog
 from mdi_window import MdiWindow
-from models import Query, Folder
-from navigator import FoldersTreeModel, QueryTreeItem, NavigatorPane, FolderTreeItem
+from models import Query
+from navigator import QueryTreeItem, NavigatorPane, FolderTreeItem
 from network import Request
 from series_window import SeriesWindow
 from table_window import TableWindow
@@ -49,6 +48,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.mdiArea.subWindowActivated.connect(self._update_actions)
         self.tabifiedDockWidgetActivated.connect(self._update_actions)
         Cli3App.instance().updateMainWindiwSignal.connect(self._update_actions)
+        self.navDockWidget.visibilityChanged.connect(self._update_actions)
+        self.logDocWidget.visibilityChanged.connect(self._update_actions)
 
     def showEvent(self, a0: QtGui.QShowEvent) -> None:
         super().showEvent(a0)
@@ -86,7 +87,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Menu
         self.menuWindow.aboutToShow.connect(self._update_window_list)
         self._create_query_menu()
-        #        self.menuQuery.aboutToShow.connect(self._create_query_menu)
         # Toolbar
         self._fill_toolbar()
         Cli3App.instance().session.answerReceivedSignal.connect(self.answer_received)

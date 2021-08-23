@@ -1,7 +1,4 @@
 import sys
-import typing
-
-from PyQt5.QtWidgets import *
 
 from app import Cli3App
 from main_window import MainWindow
