@@ -160,6 +160,8 @@ class Cli3TableModel(QAbstractTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if index.isValid():
+            if self._get_cell_value(index.row(), index.column()) is None:
+                return QtCore.QVariant()
             if role == Qt.DisplayRole:
                 return self._get_cell_value(index.row(), index.column())
             elif role == Qt.EditRole:

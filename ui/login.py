@@ -24,7 +24,7 @@ class Ui_dlgLogin(object):
         self.formLayout = QtWidgets.QFormLayout()
         self.formLayout.setFieldGrowthPolicy(QtWidgets.QFormLayout.ExpandingFieldsGrow)
         self.formLayout.setLabelAlignment(QtCore.Qt.AlignCenter)
-        self.formLayout.setFormAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignHCenter)
+        self.formLayout.setFormAlignment(QtCore.Qt.AlignBottom|QtCore.Qt.AlignHCenter)
         self.formLayout.setContentsMargins(8, 8, 8, 8)
         self.formLayout.setSpacing(8)
         self.formLayout.setObjectName("formLayout")
