@@ -50,7 +50,6 @@ class MdiWindow(QtWidgets.QFrame):
         self._request = request
         Cli3App.instance().session.requestDoneSignal.emit(self._request)
         self.locked = False
-        print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
             self.set_request(request=request)
         Cli3App.instance().updateMainWindiwSignal.emit()

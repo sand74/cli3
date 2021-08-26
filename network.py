@@ -44,7 +44,6 @@ class Request(QObject):
             self.answer = buffer.data().decode()
         else:
             self.answer = self.reply.errorString()
-        print('Receive answer', self.answer)
         self.getDoneSignal.emit(self)
 
     def __str__(self):

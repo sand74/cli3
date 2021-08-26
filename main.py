@@ -1,11 +1,8 @@
 import sys
 
-from memory_profiler import profile
-
 from app import Cli3App
 from main_window import MainWindow
 
-@profile
 def main():
     app = Cli3App(sys.argv)
     mainWindow = MainWindow()

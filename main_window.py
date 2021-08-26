@@ -278,16 +278,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for sub_window in sub_windows:
             print(sub_window.windowTitle())
 
-
     def answer_received(self, request: Request) -> None:
         """
         Show received answer
         :param request: Done request
         :return:
         """
-        print(request.uuid, '- Received answer for', request.query, 'with error code', request.error)
         if request.error == 0:
-            print('Answer', request.answer)
             if request.query.type == 'TABLE':
                 window = TableWindow(self.mdiArea)
                 window.set_request(request=request)
@@ -308,7 +305,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         :param query: Query for send
         :return: Query from server
         """
-        print('Query', query)
         err, message = Cli3App.instance().session.get(f'{Cli3App.instance().session.QUERY_API}?id={query.id}')
         if err == QtNetwork.QNetworkReply.NoError:
             json_query = json.loads(message)
