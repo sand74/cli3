@@ -1,7 +1,7 @@
 import json
 
-from mdi_window import MdiWindow
-from network import Request
+from cli3.mdi_window import MdiWindow
+from cli3.network import Request
 from ui.text_window import Ui_TextWindow
 
 

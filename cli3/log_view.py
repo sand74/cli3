@@ -4,8 +4,8 @@ import qtawesome as qta
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QHeaderView, QTableWidgetItem
 
-from app import Cli3App
-from network import Request
+from cli3.app import Cli3App
+from cli3.network import Request
 from ui.log_pane import Ui_logPane
 
 

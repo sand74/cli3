@@ -10,10 +10,10 @@ from PyQt5.QtWidgets import QAbstractItemView
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
-from app import Cli3App
-from mdi_window import MdiWindow
-from models import Query, Column
-from network import Request
+from cli3.app import Cli3App
+from cli3.mdi_window import MdiWindow
+from cli3.models import Query, Column
+from cli3.network import Request
 from ui.table import Ui_TableWindow
 
 
@@ -38,6 +38,11 @@ class Cli3TableModel(QAbstractTableModel):
         for name, type in [(column.name, column.type) for column in self._columns]:
             if type == 'NUMBER':
                 self._source[name] = self._source[name].astype('float')
+            elif type == 'INTEGER':
+#                self._source[name] = self._source[name].round()
+                self._source[name] = self._source[name].astype('float')
+                self._source[name].fillna(float(0), inplace=True)
+                self._source[name] = self._source[name].astype(int)
             elif type in ['DATE', 'DATETIME', 'TIME']:
                 self._source[name] = pd.to_datetime(self._source[name])
             elif type == 'BOOL':
@@ -277,13 +282,15 @@ class Cli3TableModel(QAbstractTableModel):
             if role == QtCore.Qt.DisplayRole:
                 col = next((c for c in self._columns if c.name == self._visable_columns[column]), None)
                 if col is not None:
+                    if '<br>' in col.title:
+                        return QtCore.QVariant(col.title.replace('<br>', '\n'))
                     return QtCore.QVariant(col.title)
             elif role == QtCore.Qt.DecorationRole:
                 if self.hasFilter(column):
                     return Cli3App.instance().icons.get('filter')
         elif orientation == QtCore.Qt.Vertical:
             if role == QtCore.Qt.DisplayRole:
-                return QtCore.QVariant(str(self._dataframe.index[column]))
+                return QtCore.QVariant(str(self._dataframe.index[column] + 1))
         return QtCore.QVariant()
 
     # Sort section

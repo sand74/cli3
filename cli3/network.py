@@ -4,7 +4,7 @@ from threading import Lock
 from PyQt5 import QtNetwork, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal, QEventLoop
 
-from models import Query
+from cli3.models import Query
 
 
 class NetworkException(Exception):

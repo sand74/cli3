@@ -3,8 +3,8 @@ import pickle
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QSize, Qt
 
-from app import Cli3App
-from network import Request
+from cli3.app import Cli3App
+from cli3.network import Request
 
 
 class MdiWindow(QtWidgets.QFrame):

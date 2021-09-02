@@ -6,28 +6,39 @@ import typing
 import qtawesome as qta
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication
+import os
 
-from network import Session
-
+from cli3.network import Session
 
 class Cli3App(QApplication):
+    STYLE_SHEET_FILE = '/style.qss'
     updateMainWindiwSignal = pyqtSignal()
     # Nci dict like name -> pandas table
     nci = dict()
     # Styles dict
     styles = dict()
 
+    @staticmethod
+    def get_app_path():
+        path = pathlib.Path(__file__).parent.parent.resolve()
+        return path
+
     def __init__(self, argv: typing.List[str]):
         super().__init__(argv)
         self.setApplicationName('Cli3')
         self.setOrganizationName('ICS')
         self.setApplicationVersion('1.1.1')
-        path = pathlib.Path(__file__).parent.resolve()
-        config = self._read_config(str(path) + '/cli3.ini')
+        path = pathlib.Path(__file__).parent.parent.resolve()
+        config = self._read_config(str(Cli3App.get_app_path()) + '/cli3.ini')
         default_section = config['DEFAULT']
         self.session = Session(f"http://{default_section.get('server')}:{default_section.get('port')}",
                                default_section.get("schema"))
         self._load_icons()
+#        path = pathlib.Path(__file__).parent.resolve()
+#        with open(str(path) + self.STYLE_SHEET_FILE) as style_sheet_file:
+#            self._qss = style_sheet_file.read()
+#            print('QSS:', self._qss)
+#            self.setStyleSheet(self._qss)
 
     def _read_config(self, filename):
         config = configparser.ConfigParser()

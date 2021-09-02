@@ -10,17 +10,17 @@ from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QApplication, QMdiArea, \
     QFileDialog, QMenu, QAction, QMessageBox, QDialog
 
-from app import Cli3App
-from input_dialog import InputDialog
-from log_view import LogPane
-from login import LoginDialog
-from mdi_window import MdiWindow
-from models import Query
-from navigator import QueryTreeItem, NavigatorPane, FolderTreeItem
-from network import Request
-from series_window import SeriesWindow
-from table_window import TableWindow
-from text_window import TextWindow
+from cli3.app import Cli3App
+from cli3.input_dialog import InputDialog
+from cli3.log_view import LogPane
+from cli3.login import LoginDialog
+from cli3.mdi_window import MdiWindow
+from cli3.models import Query
+from cli3.navigator import QueryTreeItem, NavigatorPane, FolderTreeItem
+from cli3.network import Request
+from cli3.series_window import SeriesWindow
+from cli3.table_window import TableWindow
+from cli3.text_window import TextWindow
 from ui.main_window import Ui_MainWindow
 
 

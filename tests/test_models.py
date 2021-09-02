@@ -1,6 +1,6 @@
 import unittest
 
-from models import Folder, InputField
+from cli3.models import Folder, InputField
 
 
 class MyTestCase(unittest.TestCase):

@@ -5,8 +5,8 @@ from PyQt5 import QtNetwork, QtWidgets
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QVariant, Qt, pyqtSignal
 from PyQt5.QtWidgets import QWidget
 
-from app import Cli3App
-from models import Folder, Query
+from cli3.app import Cli3App
+from cli3.models import Folder, Query
 from ui.nav_pane import Ui_navigatorPane
 
 

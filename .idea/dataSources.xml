@@ -25,5 +25,18 @@
       <jdbc-url>jdbc:oracle:thin:@172.16.7.2:1521:EVA</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="PostgreSQL - snark@172.16.7.10" uuid="72d8154d-b5ec-4236-9e68-eb970ca57ccc">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://172.16.7.10:5432/snark</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="IBM Db2 for 9.X, 10.X - TSOD1@10.35.49.192" uuid="6a1211e4-95e5-4d51-af34-b62f2e398851">
+      <driver-ref>db2</driver-ref>
+      <jdbc-driver>com.ibm.db2.jcc.DB2Driver</jdbc-driver>
+      <jdbc-url>jdbc:db2://10.35.49.192:50000/TSOD1</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>

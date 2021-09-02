@@ -5,9 +5,9 @@ from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
 
-from mdi_window import MdiWindow
-from models import Column
-from network import Request
+from cli3.mdi_window import MdiWindow
+from cli3.models import Column
+from cli3.network import Request
 from ui.series_window import Ui_SeriesWindow
 
 

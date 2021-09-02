@@ -7,8 +7,8 @@ from PyQt5 import QtWidgets, QtNetwork
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QCoreApplication, QSettings
 from PyQt5.QtWidgets import QApplication
 
-from app import Cli3App
-from network import NetworkException
+from cli3.app import Cli3App
+from cli3.network import NetworkException
 from ui.login import Ui_dlgLogin
 
 
@@ -32,7 +32,9 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         if self.usernameLineEdit.text() != '':
             self.focusNextChild()
             self.focusNextChild()
-        self.labelStatus.setText(Cli3App.instance().session.get_base_url())
+        path = pathlib.Path(__file__).parent.parent.resolve()
+        self.labelStatus.setText(f'{str(Cli3App.get_app_path())}:{Cli3App.instance().session.get_base_url()}')
+
 
     def _write_settings(self) -> None:
         """
@@ -110,7 +112,7 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
             progress_message = f"Loading {nci['name']} ..."
             self.loadProgressBar.setFormat(progress_message)
             self.labelStatus.setText(progress_message)
-            path = str(pathlib.Path(__file__).parent.resolve()) + '/data'
+            path = str(str(Cli3App.get_app_path())) + '/data'
             os.makedirs(path, exist_ok=True)
             data_file = f"{path}/{nci['name']}.csv"
             if os.path.exists(data_file):

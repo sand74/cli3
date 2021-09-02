@@ -5,9 +5,9 @@ from typing import Any
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QDate
 
-from app import Cli3App
-from models import Query, Param
-from nci_table import NciTableView, NciTableModel
+from cli3.app import Cli3App
+from cli3.models import Query, Param
+from cli3.nci_table import NciTableView, NciTableModel
 from ui.input_dialog import Ui_InputDialog
 
 

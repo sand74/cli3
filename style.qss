@@ -1,0 +1,10 @@
+QHeaderView {
+    font-weight: bold;
+    font-size: 14pt;
+}
+
+QHeaderView.section {
+    font-weight: bold;
+    font-size: xxx-large;
+}
+

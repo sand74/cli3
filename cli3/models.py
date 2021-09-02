@@ -177,7 +177,7 @@ class Column(object):
         self._type = column.get('type', 'STRING').upper()
         self._width = column.get('width', 0)
         self._format = column.get('format', None)
-        self._visable = column.get('visible', True)
+        self._visable = column.get('visable', False)
         self._nci = column.get('nci', {})
         self._nci_column = column.get('nci_column', None)
         self._subqueries = []
