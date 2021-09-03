@@ -1,0 +1,91 @@
+{
+  "config_dir": "/Users/sand/PycharmProjects/cli3/.pyupdater",
+  "filename": "/Users/sand/PycharmProjects/cli3/.pyupdater/config.pyu",
+  "count": 0,
+  "app_config": {
+    "APP_NAME": "Cli3 App",
+    "CLIENT_CONFIG_PATH": [
+      "client_config.py"
+    ],
+    "COMPANY_NAME": "sand",
+    "PLUGIN_CONFIGS": {
+      "scp-Digital Sapphire": {
+        "username": "loader",
+        "password": "twister",
+        "keyfile": "",
+        "host": "172.16.7.10",
+        "port": 22,
+        "remote_dir": "updates"
+      }
+    },
+    "UPDATE_PATCHES": true,
+    "MAX_DOWNLOAD_RETRIES": 3,
+    "HTTP_TIMEOUT": 30,
+    "UPDATE_URLS": [
+      "http://172.16.7.10:8081/updates"
+    ],
+    "DATA_DIR": "/Users/sand/PycharmProjects/cli3"
+  },
+  "keypack": {
+    "client": {
+      "offline_public": "tWs5elQYiVgKv1P1PDt94Hw3qBgi3MXtY/x8rsumqBY"
+    },
+    "repo": {
+      "app_private": "I7EkSdcn/2z41fLd49vMjmMPcahTAQPMhecqfunqzHM"
+    },
+    "upload": {
+      "app_public": "A51Vs+NaQR4gwjwu0FNVPbbatjJUDEkLesKla8FUV3c",
+      "signature": "9FW8wTmbZFS/7+Yqxt+vDHSe3I3o0gv+fboeUP5A0zCT4w4ig0ycVmoVSSl1/YcmPe1EQO5nIQkq+aArxeL5Cg"
+    }
+  },
+  "version_meta": {
+    "updates": {
+      "Cli3 App": {
+        "0.0.1.0.1": {
+          "mac": {
+            "file_hash": "cf53d94581899327fc31908f4ba059e4bda4e3d509766417e8dfa21edd74429e",
+            "file_size": 61839213,
+            "filename": "Cli3 App-mac-0.0.1alpha1.tar.gz"
+          }
+        },
+        "0.0.1.0.2": {
+          "mac": {
+            "file_hash": "c9401d87a97519b1a142fec2fdf0b5741dc4dc43c24596dd69cf28c57f351fd1",
+            "file_size": 61836991,
+            "filename": "Cli3 App-mac-0.0.1alpha2.tar.gz",
+            "patch_name": "Cli3 App-mac-alpha-2",
+            "patch_hash": "ce7a7067f75a68e2c425766d6f9375d8fbf8a0ecd69361305a2184d04bb87120",
+            "patch_size": 53850133
+          }
+        },
+        "0.0.2.0.2": {
+          "mac": {
+            "file_hash": "c2e88a08f131f2d9770f3050f9b62cb6855b4a7ef242928b6a2a77ccac983a40",
+            "file_size": 61837898,
+            "filename": "Cli3 App-mac-0.0.2alpha2.tar.gz",
+            "patch_name": "Cli3 App-mac-alpha-3",
+            "patch_hash": "a44b30f8db23bb09e8439047a49a9b77430b8328507396ad5d8c551182d63f01",
+            "patch_size": 52285770
+          }
+        }
+      }
+    },
+    "latest": {
+      "Cli3 App": {
+        "alpha": {
+          "mac": "0.0.2.0.2"
+        }
+      }
+    }
+  },
+  "py_repo_config": {
+    "patches": {
+      "Cli3 App": 3
+    },
+    "package": {
+      "Cli3 App": {
+        "mac": "0.0.2.0.2"
+      }
+    }
+  }
+}
