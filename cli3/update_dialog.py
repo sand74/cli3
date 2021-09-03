@@ -1,9 +1,7 @@
 import logging
-import os
-import time
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QRunnable, QThread, Qt
+from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt
 from PyQt5.QtGui import QColor, QPalette
 from pyupdater.client import Client
 
@@ -11,23 +9,23 @@ from ui.update_dialog import Ui_updateDialog
 
 logger = logging.getLogger(__name__)
 
+
 class Downloader(QObject):
     finished = pyqtSignal(int)
     progress = pyqtSignal(object)
 
-    def __init__(self, client: Client, updater = None):
+    def __init__(self, client: Client, updater=None):
         super().__init__()
         self._client = client
         self._updater = updater
         self._client.add_progress_hook(self._progress)
 
-    def run(self): # A slot takes no params
+    def run(self):  # A slot takes no params
         downloaded = self._updater.download()
         if downloaded:
             self.finished.emit(0)
         else:
             self.finished.emit(-1)
-
 
     def _progress(self, info):
         self.progress.emit(info)
@@ -37,6 +35,7 @@ class UpdateDialog(QtWidgets.QDialog, Ui_updateDialog):
     """
     Диалоговое окно для установки обновлений
     """
+
     def __init__(self, downloader: Downloader, parent: QtWidgets = None):
         super().__init__(parent)
         self._downloader = downloader
@@ -51,6 +50,7 @@ class UpdateDialog(QtWidgets.QDialog, Ui_updateDialog):
         super().setupUi(self)
 
     def update(self) -> None:
+        self.updateButton.setEnabled(False)
         self._downloader.moveToThread(self._thread)
         self._thread.started.connect(self._downloader.run)
         self._downloader.finished.connect(self._finished)

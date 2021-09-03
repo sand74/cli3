@@ -189,7 +189,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             printer = QPrinter()
             dialog = QPrintDialog(printer, self)
             dialog.setWindowTitle("Print Document")
-            if (dialog.exec() == QDialog.Accepted):
+            if dialog.exec() == QDialog.Accepted:
                 window.widget().print(printer)
 
     def _export_answer_to_pdf(self):

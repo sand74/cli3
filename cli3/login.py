@@ -35,7 +35,6 @@ class LoginDialog(QtWidgets.QDialog, Ui_dlgLogin):
         path = pathlib.Path(__file__).parent.parent.resolve()
         self.labelStatus.setText(f'{str(Cli3App.get_app_path())}:{Cli3App.instance().session.get_base_url()}')
 
-
     def _write_settings(self) -> None:
         """
         Write main windows  Settings

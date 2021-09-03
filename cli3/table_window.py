@@ -39,7 +39,7 @@ class Cli3TableModel(QAbstractTableModel):
             if type == 'NUMBER':
                 self._source[name] = self._source[name].astype('float')
             elif type == 'INTEGER':
-#                self._source[name] = self._source[name].round()
+                #                self._source[name] = self._source[name].round()
                 self._source[name] = self._source[name].astype('float')
                 self._source[name].fillna(float(0), inplace=True)
                 self._source[name] = self._source[name].astype(int)
@@ -228,7 +228,7 @@ class Cli3TableModel(QAbstractTableModel):
         :param column:
         :return:
         """
-        if self._dataframe.iloc[row, column] == None:
+        if self._dataframe.iloc[row, column] is None:
             return None
         src_column = self.get_source_column(column)
         if self._columns[src_column].type == 'DATETIME':

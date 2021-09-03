@@ -1,14 +1,15 @@
 # from PyQt5 import Qt
 
-'''
+"""
 Модели объектов приложения
-'''
+"""
 
 
 class Folder(object):
     """
     Модель папки
     """
+
     def __init__(self, folder):
         super().__init__()
         self._name = folder['name']
@@ -25,6 +26,7 @@ class InputField(object):
     """
     Модель поля ввода
     """
+
     def __init__(self, field):
         super().__init__()
         self._type = field['type']
@@ -53,6 +55,7 @@ class Param(object):
     """
     Модель параметра запрося
     """
+
     def __init__(self, param):
         super().__init__()
         self._name = param['name']
@@ -93,6 +96,7 @@ class Query(object):
     """
     модель запрося
     """
+
     def __init__(self, query):
         super().__init__()
         self._id = query['id']

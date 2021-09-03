@@ -7,6 +7,7 @@ class NciTableModel(QAbstractTableModel):
     """
     Модель таблицы для представления датафрейма nci
     """
+
     def __init__(self, dataframe, max_rows=None):
         super().__init__()
         self._source = dataframe

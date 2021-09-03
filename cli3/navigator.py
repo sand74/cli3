@@ -10,7 +10,7 @@ from cli3.models import Folder, Query
 from ui.nav_pane import Ui_navigatorPane
 
 
-class TreeItem():
+class TreeItem:
     def __init__(self, parent: 'TreeItem' = None):
         self._parent = parent
         self._children = []
@@ -135,7 +135,7 @@ class FoldersTreeModel(QAbstractItemModel):
         parent_item = child_item.parent()
         if parent_item == self._root_item:
             return QModelIndex()
-        if parent_item == None:
+        if parent_item is None:
             return QModelIndex()
         return self.createIndex(parent_item.row(), 0, parent_item)
 
@@ -162,7 +162,7 @@ class FoldersTreeModel(QAbstractItemModel):
             return item.data(index.column())
         elif role == Qt.DecorationRole:
             item = index.internalPointer()
-            if item is not None and item.get_icon() != None:
+            if item is not None and item.get_icon() is not None:
                 return item.get_icon()
         return QVariant()
 

@@ -1,19 +1,18 @@
+import argparse
+import logging
 import os
+import resource
+import sys
+import time
+from time import sleep
 
 from PyQt5.QtWidgets import QDialog
+from pyupdater.client import Client
 
 import cli3
 from cli3.app import Cli3App
 from cli3.main_window import MainWindow
-
-import resource
-import logging
-import sys
-import time
-import argparse
-from time import sleep
-from pyupdater.client import Client
-#from cli3update.client_config import ClientConfig
+# from cli3update.client_config import ClientConfig
 from cli3.update_dialog import UpdateDialog, Downloader
 from updates.client_config import ClientConfig
 
@@ -91,13 +90,14 @@ def initialize_logging(debug=False):
 
 __version__ = '0.0.1'
 
+
 def check_for_updates(debug):
     """
     Check for updates.
     Channel options are stable, beta & alpha
     Patches are only created & applied on the stable channel
     """
-#    assert CLIENT_CONFIG.PUBLIC_KEY is not None
+    #    assert CLIENT_CONFIG.PUBLIC_KEY is not None
     client = Client(ClientConfig, refresh=True)
     appUpdate = client.update_check(ClientConfig.APP_NAME,
                                     cli3.__version__,
